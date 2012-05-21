@@ -1,6 +1,6 @@
 # Solarized HTML stylesheet
 
-This is a quick hack because I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet to 
+This is a quick hack because I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
 A small set of org-mode html export specific styles are included
 

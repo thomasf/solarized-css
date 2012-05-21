@@ -1,0 +1,15 @@
+{
+  "author": "Thomas Frössman <thomasf@jossystem.se> (http://thomas.jossystem.se)",
+  "name": "solarized-css",
+  "description": "A default html style sheet using solarized colors",
+  "version": "0.0.0",
+  "dependencies": {
+    "uglifycss": "*" ,
+    "stylus": "*",
+  },
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}

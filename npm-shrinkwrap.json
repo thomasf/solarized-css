@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "uglifycss": {
+      "version": "0.0.5"
+    },
+    "stylus": {
+      "version": "0.27.0",
+      "dependencies": {
+        "cssom": {
+          "version": "0.2.3"
+        },
+        "mkdirp": {
+          "version": "0.3.2"
+        },
+        "debug": {
+          "version": "0.7.0"
+        }
+      }
+    }
+  }
+}

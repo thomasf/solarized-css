@@ -267,14 +267,15 @@ pre {
 .next,
 .done {
   color: #002b36;
+  background-color: #dc322f;
   padding: 0 0.2em;
 }
-.todo {
-  background-color: #268bd2;
+.TODO {
+  background-color: #2aa198;
 }
-.done {
+.DONE {
   background-color: #859900;
 }
-.next {
-  color: #2aa198;
+.NEXT {
+  background-color: #268bd2;
 }

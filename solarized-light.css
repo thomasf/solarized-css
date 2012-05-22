@@ -226,6 +226,22 @@ table {
   border-spacing: 0;
 }
 html {
+  font-family: 'PT Sans', sans-serif;
+}
+pre,
+code {
+  font-family: 'Inconsolata', sans-serif;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'PT Sans Narrow', sans-serif;
+  font-weight: 700;
+}
+html {
   background-color: #fdf6e3;
   color: #657b83;
   margin: 1em;
@@ -257,6 +273,24 @@ pre {
   background-color: #fdf6e3;
   color: #657b83;
   border: 1pt solid #93a1a1;
+}
+h1 {
+  font-size: 2.8em;
+}
+h2 {
+  font-size: 2.4em;
+}
+h3 {
+  font-size: 1.8em;
+}
+h4 {
+  font-size: 1.4em;
+}
+h5 {
+  font-size: 1em;
+}
+h6 {
+  font-size: 0.83em;
 }
 .tag {
   background-color: #eee8d5;

@@ -23,18 +23,18 @@ For basic usage, just insert one of these links into the `<head>` section of any
 
 **Light version:**
 
-    <link href="https://raw.github.com/thomasf/solarized-css/master/solarized-light-min.css" rel="stylesheet"></link>
+    <link href="http://thomasf.github.com/solarized-css/solarized-light.min.css" rel="stylesheet"></link>
 
 **Dark version:**
 
-    <link href="https://raw.github.com/thomasf/solarized-css/master/solarized-dark-min.css" rel="stylesheet"></link>
+    <link href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
 
 ### With Org mode documents
 
 Put this or something similar at the top of your .org document:
 
-    #+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:https://raw.github.com/thomasf/solarized-css/master/org-info.js
-    #+STYLE: <link rel="stylesheet" type="text/css" href="https://raw.github.com/thomasf/solarized-css/master//solarized-light.css" />
+    #+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
+    #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
 
 
 

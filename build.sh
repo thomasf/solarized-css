@@ -13,8 +13,8 @@ arg=$1
 build_css() {
     stylus ${sol_src}/solarized-dark.styl -o .
     stylus ${sol_src}/solarized-light.styl -o .
-    uglifycss solarized-dark.css > solarized-dark-min.css
-    uglifycss solarized-light.css > solarized-light-min.css
+    uglifycss solarized-dark.css > solarized-dark.min.css
+    uglifycss solarized-light.css > solarized-light.min.css
 }
 
 build_js() {

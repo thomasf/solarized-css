@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="solarized-light-min.css" type="text/css" media="screen" />
+<link rel="stylesheet" href="solarized-light.min.css" type="text/css" media="screen" />
 <style type="text/css" media="screen">#wrapper { margin: auto; max-width:1000px; } p { max-width: 600px; } </style>
 <div id="wrapper">
 

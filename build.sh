@@ -26,7 +26,7 @@ case $arg in
         git checkout master
         ;;
         
-        *)
+        *) 
         # default target is regular build
         stylus ${sol_src}/solarized-dark.styl -o .
         stylus ${sol_src}/solarized-light.styl -o .

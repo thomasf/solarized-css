@@ -24,10 +24,3 @@ Then you should be able to rebuild using:
 
     ./build
     
-## Acknowledgments
-* Ethan Schoonover for creating the [solarized](http://ethanschoonover.com/solarized) color scheme.
-* HTML element test page based on [snippr snippet](http://snipplr.com/view/8121/)
-* Org mode test page from [worg](http://orgmode.org/worg/)
-* Markdown test page from [markdowncss](https://bitbucket.org/kevinburke/markdowncss/)
-
-

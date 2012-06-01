@@ -1,14 +1,26 @@
+<link rel="stylesheet" href="solarized-light-min.css" type="text/css" media="screen" />
+<style type="text/css" media="screen">#wrapper { margin: auto; width:500px }</style>
+<div id="wrapper">
+
 # Solarized HTML stylesheet
 
-This is a quick hack because I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
+This project aim is to provide general solarized light and dark themes
+for HTML documents that mostly relies on standard HTML elements.
 
-A small set of org-mode html export specific styles are included
+For examples and some more info, visit the [github project page](http://http://thomasf.github.com/solarized-css/)
 
-Some default html elements are not restyled yet.
+## Features
 
-[normalize.css](http://necolas.github.com/normalize.css/) is included in the rendered .css-files.
+* [normalize.css](http://necolas.github.com/normalize.css/) is included in the rendered .css-files.
 
-[Here](http://datamaskinen.medeltiden.org/downloads/osinstall/osinstall.html) is an example org-mode HTML export that uses the light version style sheet.
+## Integrations 
+
+* A small set of org-mode html export specific styles are included. 
+
+
+## TODO
+* Small javascript to switch between light and dark theme.
+* Deeper org-mode integration
 
 
 ## Development
@@ -24,3 +36,4 @@ Then you should be able to rebuild using:
 
     ./build
     
+</div>

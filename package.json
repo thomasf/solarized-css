@@ -8,7 +8,6 @@
     "stylus": "*",
     "coffee-script": "*",
     "uglify-js": "*"
-    
   },
   "devDependencies": {},
   "optionalDependencies": {},

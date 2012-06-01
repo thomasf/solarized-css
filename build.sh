@@ -22,8 +22,7 @@ case $arg in
         git checkout gh-pages
         git merge master -m"merge master to gh-pages"
         pandoc index.md > index.html
-        git add index.html
-        git commit -am"merged master" 
+        git add index.html && git commit -am"merged master" || echo "---" 
         git checkout master
         ;;
         

@@ -23,12 +23,14 @@ h2,h3,h4,h5,h6
   color: $green
 
 pre
-  background-color: $hl
+  background-color: $bg
   color: $fg
   border: 1pt solid $comment
+  padding: 1em
+  box-shadow: 5pt 5pt 8pt $hl
+  code
+    background-color: @background-color
 
-
-// header sizes
 h1
   font-size: 2.8em
 h2
@@ -41,4 +43,3 @@ h5
   font-size: 1.3em
 h6
   font-size: 1.15em
-

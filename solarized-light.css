@@ -270,9 +270,14 @@ h6 {
   color: #859900;
 }
 pre {
-  background-color: #eee8d5;
+  background-color: #fdf6e3;
   color: #657b83;
   border: 1pt solid #93a1a1;
+  padding: 1em;
+  box-shadow: 5pt 5pt 8pt #eee8d5;
+}
+pre code {
+  background-color: #fdf6e3;
 }
 h1 {
   font-size: 2.8em;

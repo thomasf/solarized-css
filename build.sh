@@ -19,7 +19,7 @@ case $arg in
             echo "Unclean, exiting"
             exit 1
         )
-        git checkout gh-pagesg
+        git checkout gh-pages
         git merge master -m"merge master to gh-pages"
         pandoc index.md > index.html
         git add index.html

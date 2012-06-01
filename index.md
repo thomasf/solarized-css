@@ -9,6 +9,12 @@ for HTML documents.
 
 Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
+### GitHub
+
+For source, build scripts, README, source and acknowledgments:
+[https://github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)
+
+
 ## Targeted integrations
 
 * Org mode HTML exports
@@ -35,13 +41,6 @@ Put this or something similar at the top of your .org document:
 
     #+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
     #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
-
-
-
-## GitHub
-
-For source, build scripts, README, source and acknowledgments:
-[https://github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)
 
 ## Examples
 - [Most or all HTML elements.](test/html.html)

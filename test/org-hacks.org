@@ -1,0 +1,3133 @@
+#+OPTIONS:    H:3 num:nil toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t TeX:t LaTeX:t skip:nil d:(HIDE) tags:not-in-toc
+#+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate
+#+SEQ_TODO:   TODO(t) INPROGRESS(i) WAITING(w@) | DONE(d) CANCELED(c@)
+#+TAGS:       Write(w) Update(u) Fix(f) Check(c)
+#+TITLE:      Org ad hoc code, quick hacks and workarounds
+#+AUTHOR:     Worg people
+#+EMAIL:      mdl AT imapmail DOT org
+#+LANGUAGE:   en
+#+PRIORITIES: A C B
+#+CATEGORY:   worg
+#+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:../org-info.js
+#+STYLE:    <link rel="stylesheet" type="text/css" href="../solarized-light.css" />
+
+# This file is the default header for new Org files in Worg.  Feel free
+# to tailor it to your needs.
+
+[[file:index.org][{Back to Worg's index}]]
+
+This page is for ad hoc bits of code. Feel free to add quick hacks and
+workaround. Go crazy.
+
+* Hacking Org: Working within Org-mode.
+** Building and Managing Org
+*** Compiling Org without make
+    :PROPERTIES:
+    :CUSTOM_ID: compiling-org-without-make
+    :END:
+
+#+index: Compilation!without make
+
+This file is the result of  [[http://article.gmane.org/gmane.emacs.orgmode/15264][one of our discussions]] on the mailing list.
+Enhancements welcome.
+
+To use this function, adjust the variables =my/org-lisp-directory= and
+=my/org-compile-sources= to suite your needs.
+
+#+BEGIN_SRC emacs-lisp
+(defvar my/org-lisp-directory "~/.emacs.d/org/lisp"
+  "Directory where your org-mode files live.")
+
+(defvar my/org-compile-sources t
+  "If `nil', never compile org-sources. `my/compile-org' will only create
+the autoloads file `org-install.el' then. If `t', compile the sources, too.")
+
+;; Customize:
+(setq my/org-lisp-directory "~/.emacs.d/org/lisp")
+
+;; Customize:
+(setq  my/org-compile-sources t)
+
+(defun my/compile-org(&optional directory)
+  "Compile all *.el files that come with org-mode."
+  (interactive)
+  (setq directory (concat
+                  	(file-truename
+                    (or directory my/org-lisp-directory)) "/"))
+
+  (add-to-list 'load-path directory)
+
+  (let ((list-of-org-files (file-expand-wildcards (concat directory "*.el"))))
+
+    ;; create the org-install file
+    (require 'autoload)
+    (setq esf/org-install-file (concat directory "org-install.el"))
+    (find-file esf/org-install-file)
+    (erase-buffer)
+    (mapc (lambda (x)
+            (generate-file-autoloads x))
+          list-of-org-files)
+    (insert "\n(provide (quote org-install))\n")
+    (save-buffer)
+    (kill-buffer)
+    (byte-compile-file esf/org-install-file t)
+
+    (dolist (f list-of-org-files)
+      (if (file-exists-p (concat f "c")) ; delete compiled files
+          (delete-file (concat f "c")))
+      (if my/org-compile-sources     ; Compile, if `my/org-compile-sources' is t
+          (byte-compile-file f)))))
+#+END_SRC
+*** Reload Org
+
+#+index: Initialization!Reload
+
+As of Org version 6.23b (released Sunday Feb 22, 2009) there is a new
+function to reload org files.
+
+Normally you want to use the compiled files since they are faster.
+If you update your org files you can easily reload them with
+
+: M-x org-reload
+
+If you run into a bug and want to generate a useful backtrace you can
+reload the source files instead of the compiled files with
+
+: C-u M-x org-reload
+
+and turn on the "Enter Debugger On Error" option.  Redo the action
+that generates the error and cut and paste the resulting backtrace.
+To switch back to the compiled version just reload again with
+
+: M-x org-reload
+
+*** Check for possibly problematic old link escapes
+:PROPERTIES:
+:CUSTOM_ID: check-old-link-escapes
+:END:
+#+index: Link!Escape
+Starting with version 7.5 Org uses [[http://en.wikipedia.org/wiki/Percent-encoding][percent escaping]] more consistently
+and with a modified algorithm to determine which characters to escape
+and how.
+
+As a side effect this modified behaviour might break existing links if
+they contain a sequence of characters that look like a percent escape
+(e.g. =[0-9A-Fa-f]{2}=) but are in fact not a percent escape.
+
+The function below can be used to perform a preliminary check for such
+links in an Org mode file.  It will run through all links in the file
+and issue a warning if it finds a percent escape sequence which is not
+in old Org's list of known percent escapes.
+
+#+begin_src emacs-lisp
+  (defun dmaus/org-check-percent-escapes ()
+    "*Check buffer for possibly problematic old link escapes."
+    (interactive)
+    (when (eq major-mode 'org-mode)
+      (let ((old-escapes '("%20" "%5B" "%5D" "%E0" "%E2" "%E7" "%E8" "%E9"
+                           "%EA" "%EE" "%F4" "%F9" "%FB" "%3B" "%3D" "%2B")))
+        (unless (boundp 'warning-suppress-types)
+          (setq warning-suppress-types nil))
+        (widen)
+        (show-all)
+        (goto-char (point-min))
+        (while (re-search-forward org-any-link-re nil t)
+          (let ((end (match-end 0)))
+            (goto-char (match-beginning 0))
+            (while (re-search-forward "%[0-9a-zA-Z]\\{2\\}" end t)
+              (let ((escape (match-string-no-properties 0)))
+                (unless (member (upcase escape) old-escapes)
+                  (warn "Found unknown percent escape sequence %s at buffer %s, position %d"
+                        escape
+                        (buffer-name)
+                        (- (point) 3)))))
+            (goto-char end))))))
+#+end_src
+
+** Structure Movement and Editing 
+*** Show next/prev heading tidily
+
+#+index: Navigation!Heading
+- Dan Davison
+  These close the current heading and open the next/previous heading.
+
+#+begin_src emacs-lisp
+(defun ded/org-show-next-heading-tidily ()
+  "Show next entry, keeping other entries closed."
+  (if (save-excursion (end-of-line) (outline-invisible-p))
+      (progn (org-show-entry) (show-children))
+    (outline-next-heading)
+    (unless (and (bolp) (org-on-heading-p))
+      (org-up-heading-safe)
+      (hide-subtree)
+      (error "Boundary reached"))
+    (org-overview)
+    (org-reveal t)
+    (org-show-entry)
+    (show-children)))
+
+(defun ded/org-show-previous-heading-tidily ()
+  "Show previous entry, keeping other entries closed."
+  (let ((pos (point)))
+    (outline-previous-heading)
+    (unless (and (< (point) pos) (bolp) (org-on-heading-p))
+      (goto-char pos)
+      (hide-subtree)
+      (error "Boundary reached"))
+    (org-overview)
+    (org-reveal t)
+    (org-show-entry)
+    (show-children)))
+
+(setq org-use-speed-commands t)
+(add-to-list 'org-speed-commands-user
+             '("n" ded/org-show-next-heading-tidily))
+(add-to-list 'org-speed-commands-user
+             '("p" ded/org-show-previous-heading-tidily))
+#+end_src
+
+*** Promote all items in subtree
+#+index: Structure Editing!Promote
+- Matt Lundin
+
+This function will promote all items in a subtree. Since I use
+subtrees primarily to organize projects, the function is somewhat
+unimaginatively called my-org-un-project:
+
+#+begin_src emacs-lisp
+(defun my-org-un-project ()
+  (interactive)
+  (org-map-entries 'org-do-promote "LEVEL>1" 'tree)
+  (org-cycle t))
+#+end_src
+
+*** Turn a heading into an Org link
+    :PROPERTIES:
+    :CUSTOM_ID: heading-to-link
+    :END:
+#+index: Structure Editing!Heading
+#+index: Link!Turn a heading into a
+From David Maus:
+
+#+begin_src emacs-lisp
+  (defun dmj:turn-headline-into-org-mode-link ()
+    "Replace word at point by an Org mode link."
+    (interactive)
+    (when (org-at-heading-p)
+      (let ((hl-text (nth 4 (org-heading-components))))
+        (unless (or (null hl-text)
+                    (org-string-match-p "^[ \t]*:[^:]+:$" hl-text))
+          (beginning-of-line)
+          (search-forward hl-text (point-at-eol))
+          (replace-string
+           hl-text
+           (format "[[file:%s.org][%s]]"
+                   (org-link-escape hl-text)
+                   (org-link-escape hl-text '((?\] . "%5D") (?\[ . "%5B"))))
+           nil (- (point) (length hl-text)) (point))))))
+#+end_src
+
+*** Using M-up and M-down to transpose paragraphs
+#+index: Structure Editing!paragraphs
+
+From Paul Sexton: By default, if used within ordinary paragraphs in
+org mode, =M-up= and =M-down= transpose *lines* (not sentences).  The
+following code makes these keys transpose paragraphs, keeping the
+point at the start of the moved paragraph. Behavior in tables and
+headings is unaffected. It would be easy to modify this to transpose
+sentences.
+
+#+begin_src emacs-lisp
+(defun org-transpose-paragraphs (arg)
+ (interactive)
+ (when (and (not (or (org-at-table-p) (org-on-heading-p) (org-at-item-p)))
+            (thing-at-point 'sentence))
+   (transpose-paragraphs arg)
+   (backward-paragraph)
+   (re-search-forward "[[:graph:]]")
+   (goto-char (match-beginning 0))
+   t))
+
+(add-to-list 'org-metaup-hook 
+ (lambda () (interactive) (org-transpose-paragraphs -1)))
+(add-to-list 'org-metadown-hook 
+ (lambda () (interactive) (org-transpose-paragraphs 1)))
+#+end_src
+*** Changelog support for org headers
+#+index: Structure Editing!Heading
+-- James TD Smith
+
+Put the following in your =.emacs=, and =C-x 4 a= and other functions which
+use =add-log-current-defun= like =magit-add-log= will pick up the nearest org
+headline as the "current function" if you add a changelog entry from an org
+buffer.
+
+#+BEGIN_SRC emacs-lisp
+  (defun org-log-current-defun ()
+    (save-excursion
+      (org-back-to-heading)
+      (if (looking-at org-complex-heading-regexp)
+          (match-string 4))))
+
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (make-variable-buffer-local 'add-log-current-defun-function)
+              (setq add-log-current-defun-function 'org-log-current-defun)))
+#+END_SRC
+
+*** Different org-cycle-level behavior
+#+index: Cycling!behavior
+-- Ryan Thompson
+
+In recent org versions, when your point (cursor) is at the end of an
+empty header line (like after you first created the header), the TAB
+key (=org-cycle=) has a special behavior: it cycles the headline through
+all possible levels. However, I did not like the way it determined
+"all possible levels," so I rewrote the whole function, along with a
+couple of supporting functions.
+
+The original function's definition of "all possible levels" was "every
+level from 1 to one more than the initial level of the current
+headline before you started cycling." My new definition is "every
+level from 1 to one more than the previous headline's level." So, if
+you have a headline at level 4 and you use ALT+RET to make a new
+headline below it, it will cycle between levels 1 and 5, inclusive.
+
+The main advantage of my custom =org-cycle-level= function is that it
+is stateless: the next level in the cycle is determined entirely by
+the contents of the buffer, and not what command you executed last.
+This makes it more predictable, I hope.
+
+#+BEGIN_SRC emacs-lisp
+(require 'cl)
+
+(defun org-point-at-end-of-empty-headline ()
+  "If point is at the end of an empty headline, return t, else nil."
+  (and (looking-at "[ \t]*$")
+       (save-excursion
+         (beginning-of-line 1)
+         (looking-at (concat "^\\(\\*+\\)[ \t]+\\(" org-todo-regexp "\\)?[ \t]*")))))
+
+(defun org-level-increment ()
+  "Return the number of stars that will be added or removed at a
+time to headlines when structure editing, based on the value of
+`org-odd-levels-only'."
+  (if org-odd-levels-only 2 1))
+
+(defvar org-previous-line-level-cached nil)
+
+(defun org-recalculate-previous-line-level ()
+  "Same as `org-get-previous-line-level', but does not use cached
+value. It does *set* the cached value, though."
+  (set 'org-previous-line-level-cached
+       (let ((current-level (org-current-level))
+             (prev-level (when (> (line-number-at-pos) 1)
+                           (save-excursion
+                             (previous-line)
+                             (org-current-level)))))
+         (cond ((null current-level) nil) ; Before first headline
+               ((null prev-level) 0)      ; At first headline
+               (prev-level)))))
+
+(defun org-get-previous-line-level ()
+  "Return the outline depth of the last headline before the
+current line. Returns 0 for the first headline in the buffer, and
+nil if before the first headline."
+  ;; This calculation is quite expensive, with all the regex searching
+  ;; and stuff. Since org-cycle-level won't change lines, we can reuse
+  ;; the last value of this command.
+  (or (and (eq last-command 'org-cycle-level)
+           org-previous-line-level-cached)
+      (org-recalculate-previous-line-level)))
+
+(defun org-cycle-level ()
+  (interactive)
+  (let ((org-adapt-indentation nil))
+    (when (org-point-at-end-of-empty-headline)
+      (setq this-command 'org-cycle-level) ;Only needed for caching
+      (let ((cur-level (org-current-level))
+            (prev-level (org-get-previous-line-level)))
+        (cond
+         ;; If first headline in file, promote to top-level.
+         ((= prev-level 0)
+          (loop repeat (/ (- cur-level 1) (org-level-increment))
+                do (org-do-promote)))
+         ;; If same level as prev, demote one.
+         ((= prev-level cur-level)
+          (org-do-demote))
+         ;; If parent is top-level, promote to top level if not already.
+         ((= prev-level 1)
+          (loop repeat (/ (- cur-level 1) (org-level-increment))
+                do (org-do-promote)))
+         ;; If top-level, return to prev-level.
+         ((= cur-level 1)
+          (loop repeat (/ (- prev-level 1) (org-level-increment))
+                do (org-do-demote)))
+         ;; If less than prev-level, promote one.
+         ((< cur-level prev-level)
+          (org-do-promote))
+         ;; If deeper than prev-level, promote until higher than
+         ;; prev-level.
+         ((> cur-level prev-level)
+          (loop repeat (+ 1 (/ (- cur-level prev-level) (org-level-increment)))
+                do (org-do-promote))))
+        t))))
+#+END_SRC
+
+*** Count words in an Org buffer
+#FIXME: Does not fit too well under Structure. Any idea where to put it?
+Paul Sexton [[http://article.gmane.org/gmane.emacs.orgmode/38014][posted]] this function to count words in an Org buffer:
+
+#+begin_src emacs-lisp
+(defun org-word-count (beg end
+                           &optional count-latex-macro-args?
+                           count-footnotes?)
+  "Report the number of words in the Org mode buffer or selected region.
+Ignores:
+- comments
+- tables
+- source code blocks (#+BEGIN_SRC ... #+END_SRC, and inline blocks)
+- hyperlinks (but does count words in hyperlink descriptions)
+- tags, priorities, and TODO keywords in headers
+- sections tagged as 'not for export'.
+
+The text of footnote definitions is ignored, unless the optional argument
+COUNT-FOOTNOTES? is non-nil.
+
+If the optional argument COUNT-LATEX-MACRO-ARGS? is non-nil, the word count
+includes LaTeX macro arguments (the material between {curly braces}).
+Otherwise, and by default, every LaTeX macro counts as 1 word regardless
+of its arguments."
+  (interactive "r")
+  (unless mark-active
+    (setf beg (point-min)
+	  end (point-max)))
+  (let ((wc 0)
+	(latex-macro-regexp "\\\\[A-Za-z]+\\(\\[[^]]*\\]\\|\\){\\([^}]*\\)}"))
+    (save-excursion
+      (goto-char beg)
+      (while (< (point) end)
+        (cond
+         ;; Ignore comments.
+         ((or (org-in-commented-line) (org-at-table-p))
+          nil)
+         ;; Ignore hyperlinks. But if link has a description, count
+         ;; the words within the description.
+         ((looking-at org-bracket-link-analytic-regexp)
+          (when (match-string-no-properties 5)
+            (let ((desc (match-string-no-properties 5)))
+              (save-match-data
+                (incf wc (length (remove "" (org-split-string
+                                             desc "\\W")))))))
+          (goto-char (match-end 0)))
+         ((looking-at org-any-link-re)
+          (goto-char (match-end 0)))
+         ;; Ignore source code blocks.
+         ((org-in-regexps-block-p "^#\\+BEGIN_SRC\\W" "^#\\+END_SRC\\W")
+          nil)
+         ;; Ignore inline source blocks, counting them as 1 word.
+         ((save-excursion
+            (backward-char)
+            (looking-at org-babel-inline-src-block-regexp))
+          (goto-char (match-end 0))
+          (setf wc (+ 2 wc)))
+         ;; Count latex macros as 1 word, ignoring their arguments.
+         ((save-excursion
+            (backward-char)
+            (looking-at latex-macro-regexp))
+          (goto-char (if count-latex-macro-args?
+                         (match-beginning 2)
+                       (match-end 0)))
+          (setf wc (+ 2 wc)))
+         ;; Ignore footnotes.
+         ((and (not count-footnotes?)
+               (or (org-footnote-at-definition-p)
+                   (org-footnote-at-reference-p)))
+          nil)
+         (t
+          (let ((contexts (org-context)))
+            (cond
+             ;; Ignore tags and TODO keywords, etc.
+             ((or (assoc :todo-keyword contexts)
+                  (assoc :priority contexts)
+                  (assoc :keyword contexts)
+                  (assoc :checkbox contexts))
+              nil)
+             ;; Ignore sections marked with tags that are
+             ;; excluded from export.
+             ((assoc :tags contexts)
+              (if (intersection (org-get-tags-at) org-export-exclude-tags
+                                :test 'equal)
+                  (org-forward-same-level 1)
+                nil))
+             (t
+              (incf wc))))))
+        (re-search-forward "\\w+\\W*")))
+    (message (format "%d words in %s." wc
+                     (if mark-active "region" "buffer")))))
+#+end_src
+
+*** Check for misplaced SCHEDULED and DEADLINE cookies
+
+The =SCHEDULED= and =DEADLINE= cookies should be used on the line *right
+below* the headline -- like this:
+
+#+begin_src org
+  ,* A headline
+  ,  SCHEDULED: <2012-04-09 lun.>
+#+end_src
+
+This is what =org-scheduled= and =org-deadline= (and other similar
+commands) do.  And the manual explicitely tell people to stick to this
+format (see the section "8.3.1 Inserting deadlines or schedules").
+
+If you think you might have subtrees with misplaced =SCHEDULED= and
+=DEADLINE= cookies, this command lets you check the current buffer:
+
+#+begin_src emacs-lisp
+(defun org-check-misformatted-subtree ()
+  "Check misformatted entries in the current buffer."
+  (interactive)
+  (show-all)
+  (org-map-entries
+   (lambda ()
+     (when (and (move-beginning-of-line 2)
+		(not (looking-at org-heading-regexp)))
+       (if (or (and (org-get-scheduled-time (point))
+		    (not (looking-at (concat "^.*" org-scheduled-regexp))))
+	       (and (org-get-deadline-time (point))
+		    (not (looking-at (concat "^.*" org-deadline-regexp)))))
+	   (when (y-or-n-p "Fix this subtree? ")
+	     (message "Call the function again when you're done fixing this subtree.")
+	     (recursive-edit))
+	 (message "All subtrees checked."))))))
+#+end_src
+
+** Org Table
+*** Transpose table
+#+index: Table!Calculation
+    :PROPERTIES:
+    :CUSTOM_ID: transpose-table
+    :END:
+
+Since Org 7.8, you can use =org-table-transpose-table-at-point= (which
+see.)  There are also other solutions:
+
+- with org-babel and Emacs Lisp: provided by Thomas S. Dye in the mailing
+  list, see [[http://thread.gmane.org/gmane.emacs.orgmode/23809/focus=23815][gmane]] or [[http://lists.gnu.org/archive/html/emacs-orgmode/2010-04/msg00239.html][gnu]]
+
+- with org-babel and R: provided by Dan Davison in the mailing list (old
+  =#+TBLR:= syntax), see [[http://thread.gmane.org/gmane.emacs.orgmode/10159/focus=10159][gmane]] or [[http://lists.gnu.org/archive/html/emacs-orgmode/2008-12/msg00454.html][gnu]]
+
+- with field coordinates in formulas (=@#= and =$#=): see [[file:org-hacks.org::#field-coordinates-in-formulas-transpose-table][Worg]].
+
+*** Manipulate hours/minutes/seconds in table formulas
+#+index: Table!hours-minutes-seconds
+Both Bastien and Martin Halder have posted code ([[http://article.gmane.org/gmane.emacs.orgmode/39519][Bastien's code]] and
+[[http://article.gmane.org/gmane.emacs.orgmode/39519][Martin's code]]) for interpreting =dd:dd= or =dd:dd:dd= strings (where
+"=d=" is any digit) as time values in Org-mode table formula.  These
+functions have now been wrapped up into a =with-time= macro which can
+be used in table formula to translate table cell values to and from
+numerical values for algebraic manipulation.
+
+Here is the code implementing this macro.
+#+begin_src emacs-lisp :results silent
+  (defun org-time-string-to-seconds (s)
+    "Convert a string HH:MM:SS to a number of seconds."
+    (cond
+     ((and (stringp s)
+           (string-match "\\([0-9]+\\):\\([0-9]+\\):\\([0-9]+\\)" s))
+      (let ((hour (string-to-number (match-string 1 s)))
+            (min (string-to-number (match-string 2 s)))
+            (sec (string-to-number (match-string 3 s))))
+        (+ (* hour 3600) (* min 60) sec)))
+     ((and (stringp s)
+           (string-match "\\([0-9]+\\):\\([0-9]+\\)" s))
+      (let ((min (string-to-number (match-string 1 s)))
+            (sec (string-to-number (match-string 2 s))))
+        (+ (* min 60) sec)))
+     ((stringp s) (string-to-number s))
+     (t s)))
+
+  (defun org-time-seconds-to-string (secs)
+    "Convert a number of seconds to a time string."
+    (cond ((>= secs 3600) (format-seconds "%h:%.2m:%.2s" secs))
+          ((>= secs 60) (format-seconds "%m:%.2s" secs))
+          (t (format-seconds "%s" secs))))
+
+  (defmacro with-time (time-output-p &rest exprs)
+    "Evaluate an org-table formula, converting all fields that look
+  like time data to integer seconds.  If TIME-OUTPUT-P then return
+  the result as a time value."
+    (list
+     (if time-output-p 'org-time-seconds-to-string 'identity)
+     (cons 'progn
+           (mapcar
+            (lambda (expr)
+              `,(cons (car expr)
+                      (mapcar
+                       (lambda (el)
+                         (if (listp el)
+                             (list 'with-time nil el)
+                           (org-time-string-to-seconds el)))
+                       (cdr expr))))
+            `,@exprs))))
+#+end_src
+
+Which allows the following forms of table manipulation such as adding
+and subtracting time values.
+: | Date             | Start | Lunch |  Back |   End |  Sum |
+: |------------------+-------+-------+-------+-------+------|
+: | [2011-03-01 Tue] |  8:00 | 12:00 | 12:30 | 18:15 | 9:45 |
+: #+TBLFM: $6='(with-time t (+ (- $5 $4) (- $3 $2)))
+
+and dividing time values by integers
+: |  time | miles | minutes/mile |
+: |-------+-------+--------------|
+: | 34:43 |   2.9 |        11:58 |
+: | 32:15 |  2.77 |        11:38 |
+: | 33:56 |   3.0 |        11:18 |
+: | 52:22 |  4.62 |        11:20 |
+: #+TBLFM: $3='(with-time t (/ $1 $2))
+
+*Update*: As of Org version 7.6, you can use the =T= flag (both in Calc and
+Elisp formulas) to compute time durations.  For example:
+
+: | Task 1 | Task 2 |   Total |
+: |--------+--------+---------|
+: |  35:00 |  35:00 | 1:10:00 |
+: #+TBLFM: @2$3=$1+$2;T
+
+*** Dates computation
+#+index: Table!dates
+Xin Shi [[http://article.gmane.org/gmane.emacs.orgmode/15692][asked]] for a way to calculate the duration of 
+dates stored in an org table.
+
+Nick Dokos [[http://article.gmane.org/gmane.emacs.orgmode/15694][suggested]]:
+
+Try the following:
+
+| Start Date |   End Date | Duration |
+|------------+------------+----------|
+| 2004.08.07 | 2005.07.08 |      335 |
+:#+TBLFM: $3=(date(<$2>)-date(<$1>))
+
+See [[http://thread.gmane.org/gmane.emacs.orgmode/7741][this thread]] as well as [[http://article.gmane.org/gmane.emacs.orgmode/7753][this post]] (which is really a followup on the
+above).  The problem that this last article pointed out was solved in [[http://article.gmane.org/gmane.emacs.orgmode/8001][this
+post]] and Chris Randle's original musings are [[http://article.gmane.org/gmane.emacs.orgmode/6536/][here]].
+
+*** Hex computation
+#+index: Table!Calculation
+As with Times computation, the following code allows Computation with
+Hex values in Org-mode tables using the =with-hex= macro.
+
+Here is the code implementing this macro.
+#+begin_src emacs-lisp
+  (defun org-hex-strip-lead (str)
+    (if (and (> (length str) 2) (string= (substring str 0 2) "0x"))
+        (substring str 2) str))
+
+  (defun org-hex-to-hex (int)
+    (format "0x%x" int))
+
+  (defun org-hex-to-dec (str)
+    (cond
+     ((and (stringp str)
+           (string-match "\\([0-9a-f]+\\)" (setf str (org-hex-strip-lead str))))
+      (let ((out 0))
+        (mapc
+         (lambda (ch)
+           (setf out (+ (* out 16)
+                        (if (and (>= ch 48) (<= ch 57)) (- ch 48) (- ch 87)))))
+         (coerce (match-string 1 str) 'list))
+        out))
+     ((stringp str) (string-to-number str))
+     (t str)))
+
+  (defmacro with-hex (hex-output-p &rest exprs)
+    "Evaluate an org-table formula, converting all fields that look
+      like hexadecimal to decimal integers.  If HEX-OUTPUT-P then
+      return the result as a hex value."
+    (list
+     (if hex-output-p 'org-hex-to-hex 'identity)
+     (cons 'progn
+           (mapcar
+            (lambda (expr)
+              `,(cons (car expr)
+                      (mapcar (lambda (el)
+                                (if (listp el)
+                                    (list 'with-hex nil el)
+                                  (org-hex-to-dec el)))
+                              (cdr expr))))
+            `,@exprs))))
+#+end_src
+
+Which allows the following forms of table manipulation such as adding
+and subtracting hex values.
+| 0x10 | 0x0 | 0x10 |  16 |
+| 0x20 | 0x1 | 0x21 |  33 |
+| 0x30 | 0x2 | 0x32 |  50 |
+| 0xf0 | 0xf | 0xff | 255 |
+#+TBLFM: $3='(with-hex 'hex (+ $2 $1))::$4='(with-hex nil (identity $3))
+
+*** Field coordinates in formulas (=@#= and =$#=)
+    :PROPERTIES:
+    :CUSTOM_ID: field-coordinates-in-formulas
+    :END:
+#+index: Table!Field Coordinates
+-- Michael Brand
+
+Following are some use cases that can be implemented with the “field
+coordinates in formulas” described in the corresponding chapter in the
+[[http://orgmode.org/manual/References.html#References][Org manual]].
+
+**** Copy a column from a remote table into a column
+     :PROPERTIES:
+     :CUSTOM_ID: field-coordinates-in-formulas-copy-col-to-col
+     :END:
+
+current column =$3= = remote column =$2=:
+: #+TBLFM: $3 = remote(FOO, @@#$2)
+
+**** Copy a row from a remote table transposed into a column
+     :PROPERTIES:
+     :CUSTOM_ID: field-coordinates-in-formulas-copy-row-to-col
+     :END:
+
+current column =$1= = transposed remote row =@1=:
+: #+TBLFM: $1 = remote(FOO, @$#$@#)
+
+**** Transpose table
+     :PROPERTIES:
+     :CUSTOM_ID: field-coordinates-in-formulas-transpose-table
+     :END:
+
+-- Michael Brand
+
+This is more like a demonstration of using “field coordinates in formulas”
+and is bound to be slow for large tables. See the discussion in the mailing
+list on
+[[http://thread.gmane.org/gmane.emacs.orgmode/22610/focus=23662][gmane]] or
+[[http://lists.gnu.org/archive/html/emacs-orgmode/2010-04/msg00086.html][gnu]].
+For more efficient solutions see
+[[file:org-hacks.org::#transpose-table][Worg]].
+
+To transpose this 4x7 table
+
+: #+TBLNAME: FOO
+: | year | 2004 | 2005 | 2006 | 2007 | 2008 | 2009 |
+: |------+------+------+------+------+------+------|
+: | min  |  401 |  501 |  601 |  701 |  801 |  901 |
+: | avg  |  402 |  502 |  602 |  702 |  802 |  902 |
+: | max  |  403 |  503 |  603 |  703 |  803 |  903 |
+
+start with a 7x4 table without any horizontal line (to have filled
+also the column header) and yet empty:
+
+: |   |   |   |   |
+: |   |   |   |   |
+: |   |   |   |   |
+: |   |   |   |   |
+: |   |   |   |   |
+: |   |   |   |   |
+: |   |   |   |   |
+
+Then add the =TBLFM= line below.  After recalculation this will end up with
+the transposed copy:
+
+: | year | min | avg | max |
+: | 2004 | 401 | 402 | 403 |
+: | 2005 | 501 | 502 | 503 |
+: | 2006 | 601 | 602 | 603 |
+: | 2007 | 701 | 702 | 703 |
+: | 2008 | 801 | 802 | 803 |
+: | 2009 | 901 | 902 | 903 |
+: #+TBLFM: @<$<..@>$> = remote(FOO, @$#$@#)
+
+The formula simply exchanges row and column numbers by taking
+- the absolute remote row number =@$#= from the current column number =$#=
+- the absolute remote column number =$@#= from the current row number =@#=
+
+Formulas to be taken over from the remote table will have to be transformed
+manually.
+
+**** Dynamic variation of ranges
+
+-- Michael Brand
+
+In this example all columns next to =quote= are calculated from the column
+=quote= and show the average change of the time series =quote[year]=
+during the period of the preceding =1=, =2=, =3= or =4= years:
+
+: | year | quote |   1 a |   2 a |   3 a |   4 a |
+: |------+-------+-------+-------+-------+-------|
+: | 2005 |    10 |       |       |       |       |
+: | 2006 |    12 | 0.200 |       |       |       |
+: | 2007 |    14 | 0.167 | 0.183 |       |       |
+: | 2008 |    16 | 0.143 | 0.155 | 0.170 |       |
+: | 2009 |    18 | 0.125 | 0.134 | 0.145 | 0.158 |
+: #+TBLFM: @I$3..@>$>=if(@# >= $#, ($2 / subscr(@-I$2..@+I$2, @# + 1 - $#)) ^ (1 / ($# - 2)) - 1, string("")) +.0; f-3
+
+The important part of the formula without the field blanking is:
+
+: ($2 / subscr(@-I$2..@+I$2, @# + 1 - $#)) ^ (1 / ($# - 2)) - 1
+
+which is the Emacs Calc implementation of the equation
+
+/AvgChange(i, a) = (quote[i] / quote[i - a]) ^ (1 / a) - 1/
+
+where /i/ is the current time and /a/ is the length of the preceding period.
+
+*** Change the column sequence in one row only
+#+index: Table!Editing
+    :PROPERTIES:
+    :CUSTOM_ID: column-sequence-in-row
+    :END:
+
+-- Michael Brand
+
+The functions below can be used to change the column sequence in one row
+only, without affecting the other rows above and below like with M-<left> or
+M-<right> (org-table-move-column). Please see the docstring of the functions
+for more explanations. Below is one example per function, with this original
+table as the starting point for each example:
+: | a | b | c  | d  |
+: | e | 9 | 10 | 11 |
+: | f | g | h  | i  |
+
+**** Move in row left
+
+1) place point at "10" in original table
+2) result of M-x my-org-table-move-column-in-row-left:
+   : | a | b  | c | d  |
+   : | e | 10 | 9 | 11 |
+   : | f | g  | h | i  |
+
+**** Move in row right
+
+1) place point at "9" in original table
+2) result of M-x my-org-table-move-column-in-row-right:
+   : | a | b  | c | d  |
+   : | e | 10 | 9 | 11 |
+   : | f | g  | h | i  |
+
+**** Rotate in row left
+
+1) place point at "9" in original table
+2) result of M-x my-org-table-rotate-column-in-row-left:
+   : | a | b  | c  | d |
+   : | e | 10 | 11 | 9 |
+   : | f | g  | h  | i |
+
+**** Rotate in row right
+
+1) place point at "9" in original table
+2) result of M-x my-org-table-rotate-column-in-row-right:
+   : | a | b  | c | d  |
+   : | e | 11 | 9 | 10 |
+   : | f | g  | h | i  |
+
+**** The functions
+
+#+BEGIN_SRC emacs-lisp
+(defun my-org-table-move-column-in-row-right ()
+  "Move column to the right, limited to the current row."
+  (interactive)
+  (my-org-table-move-column-in-row nil))
+(defun my-org-table-move-column-in-row-left ()
+  "Move column to the left, limited to the current row."
+  (interactive)
+  (my-org-table-move-column-in-row 'left))
+
+(defun my-org-table-move-column-in-row (&optional left)
+  "Move the current column to the right, limited to the current row.
+With arg LEFT, move to the left.  For repeated invocation the point follows
+the value and changes to the target colum.  Does not fix formulas."
+  ;; derived from `org-table-move-column'
+  (interactive "P")
+  (if (not (org-at-table-p))
+      (error "Not at a table"))
+  (org-table-find-dataline)
+  (org-table-check-inside-data-field)
+  (let* ((col (org-table-current-column))
+         (col1 (if left (1- col) col))
+         ;; Current cursor position
+         (colpos (if left (1- col) (1+ col))))
+    (if (and left (= col 1))
+        (error "Cannot move column further left"))
+    (if (and (not left) (looking-at "[^|\n]*|[^|\n]*$"))
+        (error "Cannot move column further right"))
+    (org-table-goto-column col1 t)
+    (and (looking-at "|\\([^|\n]+\\)|\\([^|\n]+\\)|")
+         (replace-match "|\\2|\\1|"))
+    (org-table-goto-column colpos)
+    (org-table-align)))
+
+(defun my-org-table-rotate-column-in-row-right ()
+  "Rotate column to the right, limited to the current row."
+  (interactive)
+  (my-org-table-rotate-column-in-row nil))
+(defun my-org-table-rotate-column-in-row-left ()
+  "Rotate column to the left, limited to the current row."
+  (interactive)
+  (my-org-table-rotate-column-in-row 'left))
+
+(defun my-org-table-rotate-column-in-row (&optional left)
+  "Rotate the current column to the right, limited to the current row.
+With arg LEFT, rotate to the left.  The boundaries of the rotation range are
+the current and the most right column for both directions.  For repeated
+invocation the point stays on the current column.  Does not fix formulas."
+  ;; derived from `org-table-move-column'
+  (interactive "P")
+  (if (not (org-at-table-p))
+      (error "Not at a table"))
+  (org-table-find-dataline)
+  (org-table-check-inside-data-field)
+  (let ((col (org-table-current-column)))
+    (org-table-goto-column col t)
+    (and (looking-at (if left
+                         "|\\([^|\n]+\\)|\\([^\n]+\\)|$"
+                       "|\\([^\n]+\\)|\\([^|\n]+\\)|$"))
+         (replace-match "|\\2|\\1|"))
+    (org-table-goto-column col)
+    (org-table-align)))
+#+END_SRC
+
+**** Key bindings
+
+As hack I have this in an Org buffer to change temporarily to the desired
+behavior with C-c C-c on one of the three snippets:
+: - move in row:
+:   #+begin_src emacs-lisp :results silent
+:     (org-defkey org-mode-map [(meta left)]
+:                 'my-org-table-move-column-in-row-left)
+:     (org-defkey org-mode-map [(meta right)]
+:                 'my-org-table-move-column-in-row-right)
+:     (org-defkey org-mode-map [(left)]  'org-table-previous-field)
+:     (org-defkey org-mode-map [(right)] 'org-table-next-field)
+:   #+end_src
+:
+: - rotate in row:
+:   #+begin_src emacs-lisp :results silent
+:     (org-defkey org-mode-map [(meta left)]
+:                 'my-org-table-rotate-column-in-row-left)
+:     (org-defkey org-mode-map [(meta right)]
+:                 'my-org-table-rotate-column-in-row-right)
+:     (org-defkey org-mode-map [(left)]  'org-table-previous-field)
+:     (org-defkey org-mode-map [(right)] 'org-table-next-field)
+:   #+end_src
+:
+: - back to original:
+:   #+begin_src emacs-lisp :results silent
+:     (org-defkey org-mode-map [(meta left)]  'org-metaleft)
+:     (org-defkey org-mode-map [(meta right)] 'org-metaright)
+:     (org-defkey org-mode-map [(left)]  'backward-char)
+:     (org-defkey org-mode-map [(right)] 'forward-char)
+:   #+end_src
+
+**** reasons why this is not put into the Org core
+
+I consider this as only a hack for several reasons:
+- Generalization:  The existing org-table-move-column function could be
+  enhanced with additional optional parameters to incorporate these
+  functionalities and could be used as the only function for better
+  maintainability.  Now it's only a copy/paste hack of several similar
+  functions with simple modifications.
+- Bindings:  Should be convenient for repetition like M-<right>.  What
+  should be bound where, what has to be left unbound?
+- Does not fix formulas.  Could be resolved for field formulas but
+  most probably not for column or range formulas and this can lead
+  to confusion.  AFAIK all "official" table manipulations fix formulas.
+- Completeness:  Not all variations and combinations are covered yet
+  - left-right, up-down
+  - move, rotate with range to end, rotate with range to begin
+  - whole column/row, only in-row/in-column
+
+** Capture and Remember
+*** Customize the size of the frame for remember
+#+index: Remember!frame
+#+index: Customization!remember
+(Note: this hack is likely out of date due to the development of
+[[org-capture]].)
+
+#FIXME: gmane link?
+On emacs-orgmode, Ryan C. Thompson suggested this:
+
+#+begin_quote
+I am using org-remember set to open a new frame when used,
+and the default frame size is much too large. To fix this, I have
+designed some advice and a custom variable to implement custom
+parameters for the remember frame:
+#+end_quote
+
+#+begin_src emacs-lisp
+(defcustom remember-frame-alist nil
+  "Additional frame parameters for dedicated remember frame."
+  :type 'alist
+  :group 'remember)
+
+(defadvice remember (around remember-frame-parameters activate)
+  "Set some frame parameters for the remember frame."
+  (let ((default-frame-alist (append remember-frame-alist
+                                     default-frame-alist)))
+    ad-do-it))
+#+end_src
+
+Setting remember-frame-alist to =((width . 80) (height . 15)))= give a
+reasonable size for the frame.
+** Handling Links
+*** [[#heading-to-link][Turn a heading into an org link]] 
+*** Quickaccess to the link part of hyperlinks
+#+index: Link!Referent
+Christian Moe [[http://permalink.gmane.org/gmane.emacs.orgmode/43122][asked]], if there is a simpler way to copy the link part
+of an org hyperling other than to use `C-c C-l C-a C-k C-g', 
+which is indeed kind of cumbersome.
+
+The thread offered [[http://permalink.gmane.org/gmane.emacs.orgmode/43606][two ways]]:
+
+Using a [[http://www.gnu.org/software/emacs/manual/html_node/emacs/Keyboard-Macros.html][keyboard macro]]:
+#+begin_src emacs-lisp
+(fset 'getlink
+      (lambda (&optional arg) 
+        "Keyboard macro." 
+        (interactive "p") 
+        (kmacro-exec-ring-item (quote ("\C-c\C-l\C-a\C-k\C-g" 0 "%d")) arg)))
+#+end_src
+
+or a function: 
+#+begin_src emacs-lisp
+(defun my-org-extract-link ()
+  "Extract the link location at point and put it on the killring."
+  (interactive)
+  (when (org-in-regexp org-bracket-link-regexp 1)
+    (kill-new (org-link-unescape (org-match-string-no-properties 1)))))
+#+end_src
+
+They put the link destination on the killring and can be easily bound to a key.
+
+** Archiving Content in Org-Mode
+*** Preserve top level headings when archiving to a file
+#+index: Archiving!Preserve top level headings
+- Matt Lundin
+
+To preserve (somewhat) the integrity of your archive structure while
+archiving lower level items to a file, you can use the following
+defadvice:
+
+#+begin_src emacs-lisp
+(defadvice org-archive-subtree (around my-org-archive-subtree activate)
+  (let ((org-archive-location
+         (if (save-excursion (org-back-to-heading)
+                             (> (org-outline-level) 1))
+             (concat (car (split-string org-archive-location "::"))
+                     "::* "
+                     (car (org-get-outline-path)))
+           org-archive-location)))
+    ad-do-it))
+#+end_src
+
+Thus, if you have an outline structure such as...
+
+#+begin_src org
+,* Heading
+,** Subheading
+,*** Subsubheading
+#+end_src
+
+...archiving "Subsubheading" to a new file will set the location in
+the new file to the top level heading:
+
+#+begin_src org
+,* Heading
+,** Subsubheading
+#+end_src
+
+While this hack obviously destroys the outline hierarchy somewhat, it
+at least preserves the logic of level one groupings.
+
+A slightly more complex version of this hack will not only keep the
+archive organized by top-level headings, but will also preserve the
+tags found on those headings:
+
+#+begin_src emacs-lisp
+  (defun my-org-inherited-no-file-tags ()
+    (let ((tags (org-entry-get nil "ALLTAGS" 'selective))
+          (ltags (org-entry-get nil "TAGS")))
+      (mapc (lambda (tag)
+              (setq tags
+                    (replace-regexp-in-string (concat tag ":") "" tags)))
+            (append org-file-tags (when ltags (split-string ltags ":" t))))
+      (if (string= ":" tags) nil tags)))
+
+  (defadvice org-archive-subtree (around my-org-archive-subtree-low-level activate)
+    (let ((tags (my-org-inherited-no-file-tags))
+          (org-archive-location
+           (if (save-excursion (org-back-to-heading)
+                               (> (org-outline-level) 1))
+               (concat (car (split-string org-archive-location "::"))
+                       "::* "
+                       (car (org-get-outline-path)))
+             org-archive-location)))
+      ad-do-it
+      (with-current-buffer (find-file-noselect (org-extract-archive-file))
+        (save-excursion
+          (while (org-up-heading-safe))
+          (org-set-tags-to tags)))))
+#+end_src
+
+*** Archive in a date tree
+#+index: Archiving!date tree
+Posted to Org-mode mailing list by Osamu Okano [2010-04-21 Wed].
+
+(Make sure org-datetree.el is loaded for this to work.)
+
+#+begin_src emacs-lisp
+;; (setq org-archive-location "%s_archive::date-tree")
+(defadvice org-archive-subtree
+  (around org-archive-subtree-to-data-tree activate)
+  "org-archive-subtree to date-tree"
+  (if
+      (string= "date-tree"
+               (org-extract-archive-heading
+                (org-get-local-archive-location)))
+      (let* ((dct (decode-time (org-current-time)))
+             (y (nth 5 dct))
+             (m (nth 4 dct))
+             (d (nth 3 dct))
+             (this-buffer (current-buffer))
+             (location (org-get-local-archive-location))
+             (afile (org-extract-archive-file location))
+             (org-archive-location
+              (format "%s::*** %04d-%02d-%02d %s" afile y m d
+                      (format-time-string "%A" (encode-time 0 0 0 d m y)))))
+        (message "afile=%s" afile)
+        (unless afile
+          (error "Invalid `org-archive-location'"))
+        (save-excursion
+          (switch-to-buffer (find-file-noselect afile))
+          (org-datetree-find-year-create y)
+          (org-datetree-find-month-create y m)
+          (org-datetree-find-day-create y m d)
+          (widen)
+          (switch-to-buffer this-buffer))
+        ad-do-it)
+    ad-do-it))
+#+end_src
+
+*** Add inherited tags to archived entries
+#+index: Archiving!Add inherited tags
+To make =org-archive-subtree= keep inherited tags, Osamu OKANO suggests to
+advise the function like this:
+
+#+begin_example
+(defadvice org-archive-subtree
+  (before add-inherited-tags-before-org-archive-subtree activate)
+    "add inherited tags before org-archive-subtree"
+    (org-set-tags-to (org-get-tags-at)))
+#+end_example
+
+** Using and Managing Org-Metadata
+*** Remove redundant tags of headlines
+#+index: Tag!Remove redundant
+-- David Maus
+
+A small function that processes all headlines in current buffer and
+removes tags that are local to a headline and inherited by a parent
+headline or the #+FILETAGS: statement.
+
+#+BEGIN_SRC emacs-lisp
+  (defun dmj/org-remove-redundant-tags ()
+    "Remove redundant tags of headlines in current buffer.
+
+  A tag is considered redundant if it is local to a headline and
+  inherited by a parent headline."
+    (interactive)
+    (when (eq major-mode 'org-mode)
+      (save-excursion
+        (org-map-entries
+         '(lambda ()
+            (let ((alltags (split-string (or (org-entry-get (point) "ALLTAGS") "") ":"))
+                  local inherited tag)
+              (dolist (tag alltags)
+                (if (get-text-property 0 'inherited tag)
+                    (push tag inherited) (push tag local)))
+              (dolist (tag local)
+                (if (member tag inherited) (org-toggle-tag tag 'off)))))
+         t nil))))
+#+END_SRC
+
+*** Remove empty property drawers
+#+index: Drawer!Empty
+David Maus proposed this:
+
+#+begin_src emacs-lisp
+(defun dmj:org:remove-empty-propert-drawers ()
+  "*Remove all empty property drawers in current file."
+  (interactive)
+  (unless (eq major-mode 'org-mode)
+    (error "You need to turn on Org mode for this function."))
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward ":PROPERTIES:" nil t)
+      (save-excursion
+	(org-remove-empty-drawer-at "PROPERTIES" (match-beginning 0))))))
+#+end_src
+
+*** Group task list by a property
+#+index: Agenda!Group task list
+This advice allows you to group a task list in Org-Mode.  To use it,
+set the variable =org-agenda-group-by-property= to the name of a
+property in the option list for a TODO or TAGS search.  The resulting
+agenda view will group tasks by that property prior to searching.
+
+#+begin_src emacs-lisp
+(defvar org-agenda-group-by-property nil
+  "Set this in org-mode agenda views to group tasks by property")
+
+(defun org-group-bucket-items (prop items)
+  (let ((buckets ()))
+    (dolist (item items)
+      (let* ((marker (get-text-property 0 'org-marker item))
+             (pvalue (org-entry-get marker prop t))
+             (cell (assoc pvalue buckets)))
+        (if cell
+            (setcdr cell (cons item (cdr cell)))
+          (setq buckets (cons (cons pvalue (list item))
+                              buckets)))))
+    (setq buckets (mapcar (lambda (bucket)
+                            (cons (car bucket)
+                                  (reverse (cdr bucket))))
+                          buckets))
+    (sort buckets (lambda (i1 i2)
+                    (string< (car i1) (car i2))))))
+
+(defadvice org-finalize-agenda-entries (around org-group-agenda-finalize
+                                               (list &optional nosort))
+  "Prepare bucketed agenda entry lists"
+  (if org-agenda-group-by-property
+      ;; bucketed, handle appropriately
+      (let ((text ""))
+        (dolist (bucket (org-group-bucket-items
+                         org-agenda-group-by-property
+                         list))
+          (let ((header (concat "Property "
+                                org-agenda-group-by-property
+                                " is "
+                                (or (car bucket) "<nil>") ":\n")))
+            (add-text-properties 0 (1- (length header))
+                                 (list 'face 'org-agenda-structure)
+                                 header)
+            (setq text
+                  (concat text header
+                          ;; recursively process
+                          (let ((org-agenda-group-by-property nil))
+                            (org-finalize-agenda-entries
+                             (cdr bucket) nosort))
+                          "\n\n"))))
+        (setq ad-return-value text))
+    ad-do-it))
+(ad-activate 'org-finalize-agenda-entries)
+#+end_src
+*** A way to tag a task so that when clocking-out user is prompted to take a note.
+#+index: Tag!Clock
+#+index: Clock!Tag
+    Thanks to Richard Riley (see [[http://permalink.gmane.org/gmane.emacs.orgmode/40896][this post on the mailing list]]).
+
+A small hook run when clocking out of a task that prompts for a note
+when the tag "=clockout_note=" is found in a headline. It uses the tag
+("=clockout_note=") so inheritance can also be used...
+
+#+begin_src emacs-lisp
+  (defun rgr/check-for-clock-out-note()
+        (interactive)
+        (save-excursion
+          (org-back-to-heading)
+          (let ((tags (org-get-tags)))
+            (and tags (message "tags: %s " tags)
+                 (when (member "clocknote" tags)
+                   (org-add-note))))))
+
+  (add-hook 'org-clock-out-hook 'rgr/check-for-clock-out-note)
+#+end_src
+*** Dynamically adjust tag position
+#+index: Tag!position
+Here is a bit of code that allows you to have the tags always
+right-adjusted in the buffer.
+
+This is useful when you have bigger window than default window-size
+and you dislike the aesthetics of having the tag in the middle of the
+line.
+
+This hack solves the problem of adjusting it whenever you change the
+window size.
+Before saving it will revert the file to having the tag position be
+left-adjusted so that if you track your files with version control,
+you won't run into artificial diffs just because the window-size
+changed.
+
+*IMPORTANT*: This is probably slow on very big files.
+
+#+begin_src emacs-lisp
+(setq ba/org-adjust-tags-column t)
+
+(defun ba/org-adjust-tags-column-reset-tags ()
+  "In org-mode buffers it will reset tag position according to
+`org-tags-column'."
+  (when (and
+         (not (string= (buffer-name) "*Remember*"))
+         (eql major-mode 'org-mode))
+    (let ((b-m-p (buffer-modified-p)))
+      (condition-case nil
+          (save-excursion
+            (goto-char (point-min))
+            (command-execute 'outline-next-visible-heading)
+            ;; disable (message) that org-set-tags generates
+            (flet ((message (&rest ignored) nil))
+              (org-set-tags 1 t))
+            (set-buffer-modified-p b-m-p))
+        (error nil)))))
+
+(defun ba/org-adjust-tags-column-now ()
+  "Right-adjust `org-tags-column' value, then reset tag position."
+  (set (make-local-variable 'org-tags-column)
+       (- (- (window-width) (length org-ellipsis))))
+  (ba/org-adjust-tags-column-reset-tags))
+
+(defun ba/org-adjust-tags-column-maybe ()
+  "If `ba/org-adjust-tags-column' is set to non-nil, adjust tags."
+  (when ba/org-adjust-tags-column
+    (ba/org-adjust-tags-column-now)))
+
+(defun ba/org-adjust-tags-column-before-save ()
+  "Tags need to be left-adjusted when saving."
+  (when ba/org-adjust-tags-column
+     (setq org-tags-column 1)
+     (ba/org-adjust-tags-column-reset-tags)))
+
+(defun ba/org-adjust-tags-column-after-save ()
+  "Revert left-adjusted tag position done by before-save hook."
+  (ba/org-adjust-tags-column-maybe)
+  (set-buffer-modified-p nil))
+
+; automatically align tags on right-hand side
+(add-hook 'window-configuration-change-hook
+          'ba/org-adjust-tags-column-maybe)
+(add-hook 'before-save-hook 'ba/org-adjust-tags-column-before-save)
+(add-hook 'after-save-hook 'ba/org-adjust-tags-column-after-save)
+(add-hook 'org-agenda-mode-hook '(lambda ()
+                                  (setq org-agenda-tags-column (- (window-width)))))
+
+; between invoking org-refile and displaying the prompt (which
+; triggers window-configuration-change-hook) tags might adjust,
+; which invalidates the org-refile cache
+(defadvice org-refile (around org-refile-disable-adjust-tags)
+  "Disable dynamically adjusting tags"
+  (let ((ba/org-adjust-tags-column nil))
+    ad-do-it))
+(ad-activate 'org-refile)
+#+end_src
+*** Use an "attach" link type to open files without worrying about their location
+#+index: Link!Attach
+-- Darlan Cavalcante Moreira
+
+In the setup part in my org-files I put:
+
+#+begin_src org
+  ,#+LINK: attach elisp:(org-open-file (org-attach-expand "%s"))
+#+end_src org
+
+Now I can use the "attach" link type, but org will ask me if I want to
+allow executing the elisp code.  To avoid this you can even set
+org-confirm-elisp-link-function to nil (I don't like this because it allows
+any elisp code in links) or you can set org-confirm-elisp-link-not-regexp
+appropriately.
+
+In my case I use
+
+: (setq org-confirm-elisp-link-not-regexp "org-open-file")
+
+This works very well.
+
+** Org Agenda and Task Management
+*** Make it easier to set org-agenda-files from multiple directories
+#+index: Agenda!Files
+- Matt Lundin
+
+#+begin_src emacs-lisp
+(defun my-org-list-files (dirs ext)
+  "Function to create list of org files in multiple subdirectories.
+This can be called to generate a list of files for
+org-agenda-files or org-refile-targets.
+
+DIRS is a list of directories.
+
+EXT is a list of the extensions of files to be included."
+  (let ((dirs (if (listp dirs)
+                  dirs
+                (list dirs)))
+        (ext (if (listp ext)
+                 ext
+               (list ext)))
+        files)
+    (mapc
+     (lambda (x)
+       (mapc
+        (lambda (y)
+          (setq files
+                (append files
+                        (file-expand-wildcards
+                         (concat (file-name-as-directory x) "*" y)))))
+        ext))
+     dirs)
+    (mapc
+     (lambda (x)
+       (when (or (string-match "/.#" x)
+                 (string-match "#$" x))
+         (setq files (delete x files))))
+     files)
+    files))
+
+(defvar my-org-agenda-directories '("~/org/")
+  "List of directories containing org files.")
+(defvar my-org-agenda-extensions '(".org")
+  "List of extensions of agenda files")
+
+(setq my-org-agenda-directories '("~/org/" "~/work/"))
+(setq my-org-agenda-extensions '(".org" ".ref"))
+
+(defun my-org-set-agenda-files ()
+  (interactive)
+  (setq org-agenda-files (my-org-list-files
+                          my-org-agenda-directories
+                          my-org-agenda-extensions)))
+
+(my-org-set-agenda-files)
+#+end_src
+
+The code above will set your "default" agenda files to all files
+ending in ".org" and ".ref" in the directories "~/org/" and "~/work/".
+You can change these values by setting the variables
+my-org-agenda-extensions and my-org-agenda-directories. The function
+my-org-agenda-files-by-filetag uses these two variables to determine
+which files to search for filetags (i.e., the larger set from which
+the subset will be drawn).
+
+You can also easily use my-org-list-files to "mix and match"
+directories and extensions to generate different lists of agenda
+files.
+
+*** Restrict org-agenda-files by filetag
+#+index: Agenda!Files
+  :PROPERTIES:
+  :CUSTOM_ID: set-agenda-files-by-filetag
+  :END:
+- Matt Lundin
+
+It is often helpful to limit yourself to a subset of your agenda
+files. For instance, at work, you might want to see only files related
+to work (e.g., bugs, clientA, projectxyz, etc.). The FAQ has helpful
+information on filtering tasks using [[file:org-faq.org::#limit-agenda-with-tag-filtering][filetags]] and [[file:org-faq.org::#limit-agenda-with-category-match][custom agenda
+commands]]. These solutions, however, require reapplying a filter each
+time you call the agenda or writing several new custom agenda commands
+for each context. Another solution is to use directories for different
+types of tasks and to change your agenda files with a function that
+sets org-agenda-files to the appropriate directory. But this relies on
+hard and static boundaries between files.
+
+The following functions allow for a more dynamic approach to selecting
+a subset of files based on filetags:
+
+#+begin_src emacs-lisp
+(defun my-org-agenda-restrict-files-by-filetag (&optional tag)
+  "Restrict org agenda files only to those containing filetag."
+  (interactive)
+  (let* ((tagslist (my-org-get-all-filetags))
+         (ftag (or tag
+                   (completing-read "Tag: "
+                                    (mapcar 'car tagslist)))))
+    (org-agenda-remove-restriction-lock 'noupdate)
+    (put 'org-agenda-files 'org-restrict (cdr (assoc ftag tagslist)))
+    (setq org-agenda-overriding-restriction 'files)))
+
+(defun my-org-get-all-filetags ()
+  "Get list of filetags from all default org-files."
+  (let ((files org-agenda-files)
+        tagslist x)
+    (save-window-excursion
+      (while (setq x (pop files))
+        (set-buffer (find-file-noselect x))
+        (mapc
+         (lambda (y)
+           (let ((tagfiles (assoc y tagslist)))
+             (if tagfiles
+                 (setcdr tagfiles (cons x (cdr tagfiles)))
+               (add-to-list 'tagslist (list y x)))))
+         (my-org-get-filetags)))
+      tagslist)))
+
+(defun my-org-get-filetags ()
+  "Get list of filetags for current buffer"
+  (let ((ftags org-file-tags)
+        x)
+    (mapcar
+     (lambda (x)
+       (org-substring-no-properties x))
+     ftags)))
+#+end_src
+
+Calling my-org-agenda-restrict-files-by-filetag results in a prompt
+with all filetags in your "normal" agenda files. When you select a
+tag, org-agenda-files will be restricted to only those files
+containing the filetag. To release the restriction, type C-c C-x >
+(org-agenda-remove-restriction-lock).
+
+*** Highlight the agenda line under cursor
+#+index: Agenda!Highlight
+This is useful to make sure what task you are operating on.
+
+#+BEGIN_SRC emacs-lisp
+(add-hook 'org-agenda-mode-hook '(lambda () (hl-line-mode 1)))
+#+END_SRC
+
+Under XEmacs:
+
+#+BEGIN_SRC emacs-lisp
+;; hl-line seems to be only for emacs
+(require 'highline)
+(add-hook 'org-agenda-mode-hook '(lambda () (highline-mode 1)))
+
+;; highline-mode does not work straightaway in tty mode.
+;; I use a black background
+(custom-set-faces
+  '(highline-face ((((type tty) (class color))
+                    (:background "white" :foreground "black")))))
+#+END_SRC
+
+*** Split frame horizontally for agenda
+#+index: Agenda!frame
+If you would like to split the frame into two side-by-side windows when
+displaying the agenda, try this hack from Jan Rehders, which uses the
+`toggle-window-split' from
+
+http://www.emacswiki.org/cgi-bin/wiki/ToggleWindowSplit
+
+#+BEGIN_SRC emacs-lisp
+;; Patch org-mode to use vertical splitting
+(defadvice org-prepare-agenda (after org-fix-split)
+  (toggle-window-split))
+(ad-activate 'org-prepare-agenda)
+#+END_SRC
+
+*** Automatically add an appointment when clocking in a task
+#+index: Clock!Automatically add an appointment when clocking in a task
+#+index: Appointment!Automatically add an appointment when clocking in a task
+#+BEGIN_SRC emacs-lisp
+;; Make sure you have a sensible value for `appt-message-warning-time'
+(defvar bzg-org-clock-in-appt-delay 100
+  "Number of minutes for setting an appointment by clocking-in")
+#+END_SRC
+
+This function let's you add an appointment for the current entry.
+This can be useful when you need a reminder.
+
+#+BEGIN_SRC emacs-lisp
+(defun bzg-org-clock-in-add-appt (&optional n)
+  "Add an appointment for the Org entry at point in N minutes."
+  (interactive)
+  (save-excursion
+    (org-back-to-heading t)
+    (looking-at org-complex-heading-regexp)
+    (let* ((msg (match-string-no-properties 4))
+	   (ct-time (decode-time))
+	   (appt-min (+ (cadr ct-time)
+			(or n bzg-org-clock-in-appt-delay)))
+	   (appt-time ; define the time for the appointment
+	    (progn (setf (cadr ct-time) appt-min) ct-time)))
+      (appt-add (format-time-string
+		 "%H:%M" (apply 'encode-time appt-time)) msg)
+      (if (interactive-p) (message "New appointment for %s" msg)))))
+#+END_SRC
+
+You can advise =org-clock-in= so that =C-c C-x C-i= will automatically
+add an appointment:
+
+#+BEGIN_SRC emacs-lisp
+(defadvice org-clock-in (after org-clock-in-add-appt activate)
+  "Add an appointment when clocking a task in."
+  (bzg-org-clock-in-add-appt))
+#+END_SRC
+
+You may also want to delete the associated appointment when clocking
+out.  This function does this:
+
+#+BEGIN_SRC emacs-lisp
+(defun bzg-org-clock-out-delete-appt nil
+  "When clocking out, delete any associated appointment."
+  (interactive)
+  (save-excursion
+    (org-back-to-heading t)
+    (looking-at org-complex-heading-regexp)
+    (let* ((msg (match-string-no-properties 4)))
+      (setq appt-time-msg-list
+	    (delete nil
+		    (mapcar
+		     (lambda (appt)
+		       (if (not (string-match (regexp-quote msg)
+					      (cadr appt))) appt))
+		     appt-time-msg-list)))
+      (appt-check))))
+#+END_SRC
+
+And here is the advice for =org-clock-out= (=C-c C-x C-o=)
+
+#+BEGIN_SRC emacs-lisp
+(defadvice org-clock-out (before org-clock-out-delete-appt activate)
+  "Delete an appointment when clocking a task out."
+  (bzg-org-clock-out-delete-appt))
+#+END_SRC
+
+*IMPORTANT*: You can add appointment by clocking in in both an
+=org-mode= and an =org-agenda-mode= buffer.  But clocking out from
+agenda buffer with the advice above will bring an error.
+
+*** Using external programs for appointments reminders
+#+index: Appointment!reminders
+Read this rich [[http://comments.gmane.org/gmane.emacs.orgmode/46641][thread]] from the org-mode list.
+
+*** Remove from agenda time grid lines that are in an appointment
+#+index: Agenda!time grid
+#+index: Appointment!Remove from agenda time grid lines
+The agenda shows lines for the time grid.  Some people think that
+these lines are a distraction when there are appointments at those
+times.  You can get rid of the lines which coincide exactly with the
+beginning of an appointment.  Michael Ekstrand has written a piece of
+advice that also removes lines that are somewhere inside an
+appointment:
+
+#+begin_src emacs-lisp
+(defun org-time-to-minutes (time)
+  "Convert an HHMM time to minutes"
+  (+ (* (/ time 100) 60) (% time 100)))
+
+(defun org-time-from-minutes (minutes)
+  "Convert a number of minutes to an HHMM time"
+  (+ (* (/ minutes 60) 100) (% minutes 60)))
+
+(defadvice org-agenda-add-time-grid-maybe (around mde-org-agenda-grid-tweakify
+                                                  (list ndays todayp))
+  (if (member 'remove-match (car org-agenda-time-grid))
+      (flet ((extract-window
+              (line)
+              (let ((start (get-text-property 1 'time-of-day line))
+                    (dur (get-text-property 1 'duration line)))
+                (cond
+                 ((and start dur)
+                  (cons start
+                        (org-time-from-minutes
+                         (+ dur (org-time-to-minutes start)))))
+                 (start start)
+                 (t nil)))))
+        (let* ((windows (delq nil (mapcar 'extract-window list)))
+               (org-agenda-time-grid
+                (list (car org-agenda-time-grid)
+                      (cadr org-agenda-time-grid)
+                      (remove-if
+                       (lambda (time)
+                         (find-if (lambda (w)
+                                    (if (numberp w)
+                                        (equal w time)
+                                      (and (>= time (car w))
+                                           (< time (cdr w)))))
+                                  windows))
+                       (caddr org-agenda-time-grid)))))
+          ad-do-it))
+    ad-do-it))
+(ad-activate 'org-agenda-add-time-grid-maybe)
+#+end_src
+*** Disable version control for Org mode agenda files
+#+index: Agenda!Files
+-- David Maus
+
+Even if you use Git to track your agenda files you might not need
+vc-mode to be enabled for these files.
+
+#+begin_src emacs-lisp
+(add-hook 'find-file-hook 'dmj/disable-vc-for-agenda-files-hook)
+(defun dmj/disable-vc-for-agenda-files-hook ()
+  "Disable vc-mode for Org agenda files."
+  (if (and (fboundp 'org-agenda-file-p)
+           (org-agenda-file-p (buffer-file-name)))
+      (remove-hook 'find-file-hook 'vc-find-file-hook)
+    (add-hook 'find-file-hook 'vc-find-file-hook)))
+#+end_src
+
+*** Easy customization of TODO colors
+#+index: Customization!Todo keywords
+#+index: Todo keywords!Customization
+
+-- Ryan C. Thompson
+
+Here is some code I came up with some code to make it easier to
+customize the colors of various TODO keywords. As long as you just
+want a different color and nothing else, you can customize the
+variable org-todo-keyword-faces and use just a string color (i.e. a
+string of the color name) as the face, and then org-get-todo-face
+will convert the color to a face, inheriting everything else from
+the standard org-todo face.
+
+To demonstrate, I currently have org-todo-keyword-faces set to
+
+#+BEGIN_SRC emacs-lisp
+(("IN PROGRESS" . "dark orange")
+ ("WAITING" . "red4")
+ ("CANCELED" . "saddle brown"))
+#+END_SRC
+
+  Here's the code, in a form you can put in your =.emacs=
+
+#+BEGIN_SRC emacs-lisp
+(eval-after-load 'org-faces
+ '(progn
+    (defcustom org-todo-keyword-faces nil
+      "Faces for specific TODO keywords.
+This is a list of cons cells, with TODO keywords in the car and
+faces in the cdr.  The face can be a symbol, a color, or a
+property list of attributes, like (:foreground \"blue\" :weight
+bold :underline t)."
+      :group 'org-faces
+      :group 'org-todo
+      :type '(repeat
+              (cons
+               (string :tag "Keyword")
+               (choice color (sexp :tag "Face")))))))
+
+(eval-after-load 'org
+ '(progn
+    (defun org-get-todo-face-from-color (color)
+      "Returns a specification for a face that inherits from org-todo
+ face and has the given color as foreground. Returns nil if
+ color is nil."
+      (when color
+        `(:inherit org-warning :foreground ,color)))
+
+    (defun org-get-todo-face (kwd)
+      "Get the right face for a TODO keyword KWD.
+If KWD is a number, get the corresponding match group."
+      (if (numberp kwd) (setq kwd (match-string kwd)))
+      (or (let ((face (cdr (assoc kwd org-todo-keyword-faces))))
+            (if (stringp face)
+                (org-get-todo-face-from-color face)
+              face))
+          (and (member kwd org-done-keywords) 'org-done)
+          'org-todo))))
+#+END_SRC
+
+*** Add an effort estimate on the fly when clocking in
+#+index: Effort estimate!Add when clocking in
+#+index: Clock!Effort estimate
+You can use =org-clock-in-prepare-hook= to add an effort estimate.
+This way you can easily have a "tea-timer" for your tasks when they
+don't already have an effort estimate.
+
+#+begin_src emacs-lisp
+(add-hook 'org-clock-in-prepare-hook
+	  'my-org-mode-ask-effort)
+
+(defun my-org-mode-ask-effort ()
+  "Ask for an effort estimate when clocking in."
+  (unless (org-entry-get (point) "Effort")
+    (let ((effort
+	   (completing-read
+	    "Effort: "
+	    (org-entry-get-multivalued-property (point) "Effort"))))
+      (unless (equal effort "")
+	(org-set-property "Effort" effort)))))
+#+end_src
+
+Or you can use a default effort for such a timer:
+
+#+begin_src emacs-lisp
+(add-hook 'org-clock-in-prepare-hook
+	  'my-org-mode-add-default-effort)
+
+(defvar org-clock-default-effort "1:00")
+
+(defun my-org-mode-add-default-effort ()
+  "Add a default effort estimation."
+  (unless (org-entry-get (point) "Effort")
+    (org-set-property "Effort" org-clock-default-effort)))
+#+end_src
+
+*** Use idle timer for automatic agenda views
+#+index: Agenda view!Refresh
+From John Wiegley's mailing list post (March 18, 2010):
+
+#+begin_quote
+I have the following snippet in my .emacs file, which I find very
+useful. Basically what it does is that if I don't touch my Emacs for 5
+minutes, it displays the current agenda. This keeps my tasks "always
+in mind" whenever I come back to Emacs after doing something else,
+whereas before I had a tendency to forget that it was there.
+#+end_quote
+
+  - [[http://mid.gmane.org/55590EA7-C744-44E5-909F-755F0BBE452D@gmail.com][John Wiegley: Displaying your Org agenda after idle time]]
+
+#+begin_src emacs-lisp
+(defun jump-to-org-agenda ()
+  (interactive)
+  (let ((buf (get-buffer "*Org Agenda*"))
+        wind)
+    (if buf
+        (if (setq wind (get-buffer-window buf))
+            (select-window wind)
+          (if (called-interactively-p)
+              (progn
+                (select-window (display-buffer buf t t))
+                (org-fit-window-to-buffer)
+                ;; (org-agenda-redo)
+                )
+            (with-selected-window (display-buffer buf)
+              (org-fit-window-to-buffer)
+              ;; (org-agenda-redo)
+              )))
+      (call-interactively 'org-agenda-list)))
+  ;;(let ((buf (get-buffer "*Calendar*")))
+  ;;  (unless (get-buffer-window buf)
+  ;;    (org-agenda-goto-calendar)))
+  )
+
+(run-with-idle-timer 300 t 'jump-to-org-agenda)
+#+end_src
+
+#+results:
+: [nil 0 300 0 t jump-to-org-agenda nil idle]
+
+*** Refresh the agenda view regularly
+#+index: Agenda view!Refresh
+Hack sent by Kiwon Um:
+
+#+begin_src emacs-lisp
+(defun kiwon/org-agenda-redo-in-other-window ()
+  "Call org-agenda-redo function even in the non-agenda buffer."
+  (interactive)
+  (let ((agenda-window (get-buffer-window org-agenda-buffer-name t)))
+    (when agenda-window
+      (with-selected-window agenda-window (org-agenda-redo)))))
+(run-at-time nil 300 'kiwon/org-agenda-redo-in-other-window)
+#+end_src
+
+*** Reschedule agenda items to today with a single command
+#+index: Agenda!Reschedule
+This was suggested by Carsten in reply to David Abrahams:
+
+#+begin_example emacs-lisp
+(defun org-agenda-reschedule-to-today ()
+  (interactive)
+  (flet ((org-read-date (&rest rest) (current-time)))
+    (call-interactively 'org-agenda-schedule)))
+#+end_example
+
+*** Mark subtree DONE along with all subheadings
+#+index: Subtree!subheadings
+Bernt Hansen [[http://permalink.gmane.org/gmane.emacs.orgmode/44693][suggested]] this command:
+
+#+begin_src emacs-lisp
+(defun bh/mark-subtree-done ()
+  (interactive)
+  (org-mark-subtree)
+  (let ((limit (point)))
+    (save-excursion
+      (exchange-point-and-mark)
+      (while (> (point) limit)
+	(org-todo "DONE")
+	(outline-previous-visible-heading 1))
+      (org-todo "DONE"))))
+#+end_src
+
+Then M-x bh/mark-subtree-done.
+
+*** Mark heading done when all checkboxes are checked.
+    :PROPERTIES:
+    :CUSTOM_ID: mark-done-when-all-checkboxes-checked
+    :END:
+
+#+index: Checkbox
+
+An item consists of a list with checkboxes.  When all of the
+checkboxes are checked, the item should be considered complete and its
+TODO state should be automatically changed to DONE. The code below
+does that. This version is slightly enhanced over the one in the
+mailing list (see
+http://thread.gmane.org/gmane.emacs.orgmode/42715/focus=42721) to
+reset the state back to TODO if a checkbox is unchecked.
+
+Note that the code requires that a checkbox statistics cookie (the [/]
+or [%] thingie in the headline - see the [[http://orgmode.org/manual/Checkboxes.html#Checkboxes][Checkboxes]] section in the
+manual) be present in order for it to work. Note also that it is too
+dumb to figure out whether the item has a TODO state in the first
+place: if there is a statistics cookie, a TODO/DONE state will be
+added willy-nilly any time that the statistics cookie is changed.
+
+#+begin_src emacs-lisp
+  ;; see http://thread.gmane.org/gmane.emacs.orgmode/42715
+  (eval-after-load 'org-list
+    '(add-hook 'org-checkbox-statistics-hook (function ndk/checkbox-list-complete)))
+  
+  (defun ndk/checkbox-list-complete ()
+    (save-excursion
+      (org-back-to-heading t)
+      (let ((beg (point)) end)
+        (end-of-line)
+        (setq end (point))
+        (goto-char beg)
+        (if (re-search-forward "\\[\\([0-9]*%\\)\\]\\|\\[\\([0-9]*\\)/\\([0-9]*\\)\\]" end t)
+              (if (match-end 1)
+                  (if (equal (match-string 1) "100%")
+                      ;; all done - do the state change
+                      (org-todo 'done)
+                    (org-todo 'todo))
+                (if (and (> (match-end 2) (match-beginning 2))
+                         (equal (match-string 2) (match-string 3)))
+                    (org-todo 'done)
+                  (org-todo 'todo)))))))
+#+end_src
+
+** Exporting org files
+*** Export Org to Org and handle includes.
+#+index: Export!handle includes
+Nick Dokos came up with this useful function:
+
+#+begin_src emacs-lisp
+(defun org-to-org-handle-includes ()
+  "Copy the contents of the current buffer to OUTFILE,
+recursively processing #+INCLUDEs."
+  (let* ((s (buffer-string))
+	 (fname (buffer-file-name))
+	 (ofname (format "%s.I.org" (file-name-sans-extension fname))))
+    (setq result
+	  (with-temp-buffer
+	    (insert s)
+	    (org-export-handle-include-files-recurse)
+	    (buffer-string)))
+    (find-file ofname)
+    (delete-region (point-min) (point-max))
+    (insert result)
+    (save-buffer)))
+#+end_src
+
+*** Specifying LaTeX commands to floating environments
+    :PROPERTIES:
+    :CUSTOM_ID: latex-command-for-floats
+    :END:
+
+#+index: Export!LaTeX
+The keyword ~placement~ can be used to specify placement options to
+floating environments (like =\begin{figure}= and =\begin{table}=}) in
+LaTeX export. Org passes along everything passed in options as long as
+there are no spaces. One can take advantage of this to pass other
+LaTeX commands and have their scope limited to the floating
+environment.
+
+For example one can set the fontsize of a table different from the
+default normal size by putting something like =\footnotesize= right
+after the placement options. During LaTeX export using the
+~#+ATTR_LaTeX:~ line below:
+
+#+begin_src org
+  ,#+ATTR_LaTeX: placement=[<options>]\footnotesize
+#+end_src
+
+exports the associated floating environment as shown in the following
+block.
+
+#+begin_src latex
+\begin{table}[<options>]\footnotesize
+...
+\end{table}
+#+end_src
+
+It should be noted that this hack does not work for beamer export of
+tables since the =table= environment is not used. As an ugly
+workaround, one can use the following:
+
+#+begin_src org
+  ,#+LATEX: {\footnotesize
+  ,#+ATTR_LaTeX: align=rr
+  ,| some | table |
+  ,|------+-------|
+  ,| ..   | ..    |
+  ,#+LATEX: }
+#+end_src
+
+*** Styling code sections with CSS
+
+#+index: HTML!Styling code sections with CSS
+
+Code sections (marked with =#+begin_src= and =#+end_src=) are exported
+to HTML using =<pre>= tags, and assigned CSS classes by their content
+type.  For example, Perl content will have an opening tag like
+=<pre class="src src-perl">=.  You can use those classes to add styling
+to the output, such as here where a small language tag is added at the
+top of each kind of code box:
+
+#+begin_src lisp
+(setq org-export-html-style
+ "<style type=\"text/css\">
+    <!--/*--><![CDATA[/*><!--*/
+      .src             { background-color: #F5FFF5; position: relative; overflow: visible; }
+      .src:before      { position: absolute; top: -15px; background: #ffffff; padding: 1px; border: 1px solid #000000; font-size: small; }
+      .src-sh:before   { content: 'sh'; }
+      .src-bash:before { content: 'sh'; }
+      .src-R:before    { content: 'R'; }
+      .src-perl:before { content: 'Perl'; }
+      .src-sql:before  { content: 'SQL'; }
+      .example         { background-color: #FFF5F5; }
+    /*]]>*/-->
+ </style>")
+#+end_src
+
+Additionally, we use color to distinguish code output (the =.example=
+class) from input (all the =.src-*= classes).
+
+* Hacking Org: Working with Org-mode and other Emacs Packages.
+** org-remember-anything
+
+#+index: Remember!Anything
+
+[[http://www.emacswiki.org/cgi-bin/wiki/Anything][Anything]] users may find the snippet below interesting:
+
+#+BEGIN_SRC emacs-lisp
+(defvar org-remember-anything
+  '((name . "Org Remember")
+    (candidates . (lambda () (mapcar 'car org-remember-templates)))
+    (action . (lambda (name)
+                (let* ((orig-template org-remember-templates)
+                       (org-remember-templates
+                        (list (assoc name orig-template))))
+                  (call-interactively 'org-remember))))))
+#+END_SRC
+
+You can add it to your 'anything-sources' variable and open remember directly
+from anything. I imagine this would be more interesting for people with many
+remember templates, so that you are out of keys to assign those to.
+
+** Org-mode and saveplace.el
+
+Fix a problem with =saveplace.el= putting you back in a folded position:
+
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook
+          (lambda ()
+	    (when (outline-invisible-p)
+	      (save-excursion
+		(outline-previous-visible-heading 1)
+		(org-show-subtree)))))
+#+end_src
+
+** Using ido-completing-read to find attachments
+
+#+index: Attachment!ido completion
+
+-- Matt Lundin.
+
+Org-attach is great for quickly linking files to a project. But if you
+use org-attach extensively you might find yourself wanting to browse
+all the files you've attached to org headlines. This is not easy to do
+manually, since the directories containing the files are not human
+readable (i.e., they are based on automatically generated ids). Here's
+some code to browse those files using ido (obviously, you need to be
+using ido):
+
+#+begin_src emacs-lisp
+(load-library "find-lisp")
+
+;; Adapted from http://www.emacswiki.org/emacs/RecentFiles
+
+(defun my-ido-find-org-attach ()
+  "Find files in org-attachment directory"
+  (interactive)
+  (let* ((enable-recursive-minibuffers t)
+         (files (find-lisp-find-files org-attach-directory "."))
+         (file-assoc-list
+          (mapcar (lambda (x)
+                    (cons (file-name-nondirectory x)
+                          x))
+                  files))
+         (filename-list
+          (remove-duplicates (mapcar #'car file-assoc-list)
+                             :test #'string=))
+         (filename (ido-completing-read "Org attachments: " filename-list nil t))
+         (longname (cdr (assoc filename file-assoc-list))))
+    (ido-set-current-directory
+     (if (file-directory-p longname)
+         longname
+       (file-name-directory longname)))
+    (setq ido-exit 'refresh
+          ido-text-init ido-text
+          ido-rotate-temp t)
+    (exit-minibuffer)))
+
+(add-hook 'ido-setup-hook 'ido-my-keys)
+
+(defun ido-my-keys ()
+  "Add my keybindings for ido."
+  (define-key ido-completion-map (kbd "C-;") 'my-ido-find-org-attach))
+#+end_src
+
+To browse your org attachments using ido fuzzy matching and/or the
+completion buffer, invoke ido-find-file as usual (=C-x C-f=) and then
+press =C-;=.
+
+** Link to Gnus messages by Message-Id
+#+index: Link!Gnus message by Message-Id
+In a [[http://thread.gmane.org/gmane.emacs.orgmode/8860][recent thread]] on the Org-Mode mailing list, there was some
+discussion about linking to Gnus messages without encoding the folder
+name in the link.  The following code hooks in to the store-link
+function in Gnus to capture links by Message-Id when in nnml folders,
+and then provides a link type "mid" which can open this link.  The
+=mde-org-gnus-open-message-link= function uses the
+=mde-mid-resolve-methods= variable to determine what Gnus backends to
+scan.  It will go through them, in order, asking each to locate the
+message and opening it from the first one that reports success.
+
+It has only been tested with a single nnml backend, so there may be
+bugs lurking here and there.
+
+The logic for finding the message was adapted from [[http://www.emacswiki.org/cgi-bin/wiki/FindMailByMessageId][an Emacs Wiki
+article]].
+
+#+begin_src emacs-lisp
+;; Support for saving Gnus messages by Message-ID
+(defun mde-org-gnus-save-by-mid ()
+  (when (memq major-mode '(gnus-summary-mode gnus-article-mode))
+    (when (eq major-mode 'gnus-article-mode)
+      (gnus-article-show-summary))
+    (let* ((group gnus-newsgroup-name)
+           (method (gnus-find-method-for-group group)))
+      (when (eq 'nnml (car method))
+        (let* ((article (gnus-summary-article-number))
+               (header (gnus-summary-article-header article))
+               (from (mail-header-from header))
+               (message-id
+                (save-match-data
+                  (let ((mid (mail-header-id header)))
+                    (if (string-match "<\\(.*\\)>" mid)
+                        (match-string 1 mid)
+                      (error "Malformed message ID header %s" mid)))))
+               (date (mail-header-date header))
+               (subject (gnus-summary-subject-string)))
+          (org-store-link-props :type "mid" :from from :subject subject
+                                :message-id message-id :group group
+                                :link (org-make-link "mid:" message-id))
+          (apply 'org-store-link-props
+                 :description (org-email-link-description)
+                 org-store-link-plist)
+          t)))))
+
+(defvar mde-mid-resolve-methods '()
+  "List of methods to try when resolving message ID's.  For Gnus,
+it is a cons of 'gnus and the select (type and name).")
+(setq mde-mid-resolve-methods
+      '((gnus nnml "")))
+
+(defvar mde-org-gnus-open-level 1
+  "Level at which Gnus is started when opening a link")
+(defun mde-org-gnus-open-message-link (msgid)
+  "Open a message link with Gnus"
+  (require 'gnus)
+  (require 'org-table)
+  (catch 'method-found
+    (message "[MID linker] Resolving %s" msgid)
+    (dolist (method mde-mid-resolve-methods)
+      (cond
+       ((and (eq (car method) 'gnus)
+             (eq (cadr method) 'nnml))
+        (funcall (cdr (assq 'gnus org-link-frame-setup))
+                 mde-org-gnus-open-level)
+        (when gnus-other-frame-object
+          (select-frame gnus-other-frame-object))
+        (let* ((msg-info (nnml-find-group-number
+                          (concat "<" msgid ">")
+                          (cdr method)))
+               (group (and msg-info (car msg-info)))
+               (message (and msg-info (cdr msg-info)))
+               (qname (and group
+                           (if (gnus-methods-equal-p
+                                (cdr method)
+                                gnus-select-method)
+                               group
+                             (gnus-group-full-name group (cdr method))))))
+          (when msg-info
+            (gnus-summary-read-group qname nil t)
+            (gnus-summary-goto-article message nil t))
+          (throw 'method-found t)))
+       (t (error "Unknown link type"))))))
+
+(eval-after-load 'org-gnus
+  '(progn
+     (add-to-list 'org-store-link-functions 'mde-org-gnus-save-by-mid)
+     (org-add-link-type "mid" 'mde-org-gnus-open-message-link)))
+#+end_src
+
+** Store link to a message when sending in Gnus
+#+index: Link!Store link to a message when sending in Gnus
+Ulf Stegemann came up with this solution (see his [[http://www.mail-archive.com/emacs-orgmode@gnu.org/msg33278.html][original message]]):
+
+#+begin_src emacs-lisp
+(defun ulf-message-send-and-org-gnus-store-link (&optional arg)
+  "Send message with `message-send-and-exit' and store org link to message copy.
+If multiple groups appear in the Gcc header, the link refers to
+the copy in the last group."
+  (interactive "P")
+    (save-excursion
+      (save-restriction
+	(message-narrow-to-headers)
+	(let ((gcc (car (last
+			 (message-unquote-tokens
+			  (message-tokenize-header
+			   (mail-fetch-field "gcc" nil t) " ,")))))
+	      (buf (current-buffer))
+	      (message-kill-buffer-on-exit nil)
+	      id to from subject desc link newsgroup xarchive)
+        (message-send-and-exit arg)
+        (or
+         ;; gcc group found ...
+         (and gcc
+              (save-current-buffer
+                (progn (set-buffer buf)
+                       (setq id (org-remove-angle-brackets
+                                 (mail-fetch-field "Message-ID")))
+                       (setq to (mail-fetch-field "To"))
+                       (setq from (mail-fetch-field "From"))
+                       (setq subject (mail-fetch-field "Subject"))))
+              (org-store-link-props :type "gnus" :from from :subject subject
+                                    :message-id id :group gcc :to to)
+              (setq desc (org-email-link-description))
+              (setq link (org-gnus-article-link
+                          gcc newsgroup id xarchive))
+              (setq org-stored-links
+                    (cons (list link desc) org-stored-links)))
+         ;; no gcc group found ...
+         (message "Can not create Org link: No Gcc header found."))))))
+
+(define-key message-mode-map [(control c) (control meta c)]
+  'ulf-message-send-and-org-gnus-store-link)
+#+end_src
+
+** Send html messages and attachments with Wanderlust
+  -- David Maus
+
+/Note/: The module [[file:org-contrib/org-mime.org][Org-mime]] in Org's contrib directory provides
+similar functionality for both Wanderlust and Gnus.  The hack below is
+still somewhat different: It allows you to toggle sending of html
+messages within Wanderlust transparently.  I.e. html markup of the
+message body is created right before sending starts.
+
+*** Send HTML message
+
+Putting the code below in your .emacs adds following four functions:
+
+- dmj/wl-send-html-message
+
+  Function that does the job: Convert everything between "--text
+  follows this line--" and first mime entity (read: attachment) or
+  end of buffer into html markup using `org-export-region-as-html'
+  and replaces original body with a multipart MIME entity with the
+  plain text version of body and the html markup version.  Thus a
+  recipient that prefers html messages can see the html markup,
+  recipients that prefer or depend on plain text can see the plain
+  text.
+
+  Cannot be called interactively: It is hooked into SEMI's
+  `mime-edit-translate-hook' if message should be HTML message.
+
+- dmj/wl-send-html-message-draft-init
+
+  Cannot be called interactively: It is hooked into WL's
+  `wl-mail-setup-hook' and provides a buffer local variable to
+  toggle.
+
+- dmj/wl-send-html-message-draft-maybe
+
+  Cannot be called interactively: It is hooked into WL's
+  `wl-draft-send-hook' and hooks `dmj/wl-send-html-message' into
+  `mime-edit-translate-hook' depending on whether HTML message is
+  toggled on or off
+
+- dmj/wl-send-html-message-toggle
+
+  Toggles sending of HTML message.  If toggled on, the letters
+  "HTML" appear in the mode line.
+
+  Call it interactively!  Or bind it to a key in `wl-draft-mode'.
+
+If you have to send HTML messages regularly you can set a global
+variable `dmj/wl-send-html-message-toggled-p' to the string "HTML" to
+toggle on sending HTML message by default.
+
+The image [[http://s11.directupload.net/file/u/15851/48ru5wl3.png][here]] shows an example of how the HTML message looks like in
+Google's web front end.  As you can see you have the whole markup of
+Org at your service: *bold*, /italics/, tables, lists...
+
+So even if you feel uncomfortable with sending HTML messages at least
+you send HTML that looks quite good.
+
+#+begin_src emacs-lisp
+(defun dmj/wl-send-html-message ()
+  "Send message as html message.
+Convert body of message to html using
+  `org-export-region-as-html'."
+  (require 'org)
+  (save-excursion
+    (let (beg end html text)
+      (goto-char (point-min))
+      (re-search-forward "^--text follows this line--$")
+      ;; move to beginning of next line
+      (beginning-of-line 2)
+      (setq beg (point))
+      (if (not (re-search-forward "^--\\[\\[" nil t))
+          (setq end (point-max))
+        ;; line up
+        (end-of-line 0)
+        (setq end (point)))
+      ;; grab body
+      (setq text (buffer-substring-no-properties beg end))
+      ;; convert to html
+      (with-temp-buffer
+        (org-mode)
+        (insert text)
+        ;; handle signature
+        (when (re-search-backward "^-- \n" nil t)
+          ;; preserve link breaks in signature
+          (insert "\n#+BEGIN_VERSE\n")
+          (goto-char (point-max))
+          (insert "\n#+END_VERSE\n")
+          ;; grab html
+          (setq html (org-export-region-as-html
+                      (point-min) (point-max) t 'string))))
+      (delete-region beg end)
+      (insert
+       (concat
+        "--" "<<alternative>>-{\n"
+        "--" "[[text/plain]]\n" text
+        "--" "[[text/html]]\n"  html
+        "--" "}-<<alternative>>\n")))))
+
+(defun dmj/wl-send-html-message-toggle ()
+  "Toggle sending of html message."
+  (interactive)
+  (setq dmj/wl-send-html-message-toggled-p
+        (if dmj/wl-send-html-message-toggled-p
+            nil "HTML"))
+  (message "Sending html message toggled %s"
+           (if dmj/wl-send-html-message-toggled-p
+               "on" "off")))
+
+(defun dmj/wl-send-html-message-draft-init ()
+  "Create buffer local settings for maybe sending html message."
+  (unless (boundp 'dmj/wl-send-html-message-toggled-p)
+    (setq dmj/wl-send-html-message-toggled-p nil))
+  (make-variable-buffer-local 'dmj/wl-send-html-message-toggled-p)
+  (add-to-list 'global-mode-string
+               '(:eval (if (eq major-mode 'wl-draft-mode)
+                           dmj/wl-send-html-message-toggled-p))))
+
+(defun dmj/wl-send-html-message-maybe ()
+  "Maybe send this message as html message.
+
+If buffer local variable `dmj/wl-send-html-message-toggled-p' is
+non-nil, add `dmj/wl-send-html-message' to
+`mime-edit-translate-hook'."
+  (if dmj/wl-send-html-message-toggled-p
+      (add-hook 'mime-edit-translate-hook 'dmj/wl-send-html-message)
+    (remove-hook 'mime-edit-translate-hook 'dmj/wl-send-html-message)))
+
+(add-hook 'wl-draft-reedit-hook 'dmj/wl-send-html-message-draft-init)
+(add-hook 'wl-mail-setup-hook 'dmj/wl-send-html-message-draft-init)
+(add-hook 'wl-draft-send-hook 'dmj/wl-send-html-message-maybe)
+#+end_src
+
+*** Attach HTML of region or subtree
+
+Instead of sending a complete HTML message you might only send parts
+of an Org file as HTML for the poor souls who are plagued with
+non-proportional fonts in their mail program that messes up pretty
+ASCII tables.
+
+This short function does the trick: It exports region or subtree to
+HTML, prefixes it with a MIME entity delimiter and pushes to killring
+and clipboard.  If a region is active, it uses the region, the
+complete subtree otherwise.
+
+#+begin_src emacs-lisp
+(defun dmj/org-export-region-as-html-attachment (beg end arg)
+  "Export region between BEG and END as html attachment.
+If BEG and END are not set, use current subtree.  Region or
+subtree is exported to html without header and footer, prefixed
+with a mime entity string and pushed to clipboard and killring.
+When called with prefix, mime entity is not marked as
+attachment."
+  (interactive "r\nP")
+  (save-excursion
+    (let* ((beg (if (region-active-p) (region-beginning)
+                  (progn
+                    (org-back-to-heading)
+                    (point))))
+           (end (if (region-active-p) (region-end)
+                  (progn
+                    (org-end-of-subtree)
+                    (point))))
+           (html (concat "--[[text/html"
+                         (if arg "" "\nContent-Disposition: attachment")
+                         "]]\n"
+                         (org-export-region-as-html beg end t 'string))))
+      (when (fboundp 'x-set-selection)
+        (ignore-errors (x-set-selection 'PRIMARY html))
+        (ignore-errors (x-set-selection 'CLIPBOARD html)))
+      (message "html export done, pushed to kill ring and clipboard"))))
+#+end_src
+
+*** Adopting for Gnus
+
+The whole magic lies in the special strings that mark a HTML
+attachment.  So you might just have to find out what these special
+strings are in message-mode and modify the functions accordingly.
+** Add sunrise/sunset times to the agenda.
+#+index: Agenda!Diary s-expressions
+  -- Nick Dokos
+
+The diary package provides the function =diary-sunrise-sunset= which can be used
+in a diary s-expression in some agenda file like this:
+
+#+begin_src org-mode
+%%(diary-sunrise-sunset)
+#+end_src
+
+Seb Vauban asked if it is possible to put sunrise and sunset in
+separate lines. Here is a hack to do that. It adds two functions (they
+have to be available before the agenda is shown, so I add them early
+in my org-config file which is sourced from .emacs, but you'll have to
+suit yourself here) that just parse the output of
+diary-sunrise-sunset, instead of doing the right thing which would be
+to take advantage of the data structures that diary/solar.el provides.
+In short, a hack - so perfectly suited for inclusion here :-)
+
+The functions (and latitude/longitude settings which you have to modify for
+your location) are as follows:
+
+#+begin_src emacs-lisp
+(setq calendar-latitude 40.3)
+(setq calendar-longitude -71.0)
+(defun diary-sunrise ()
+  (let ((dss (diary-sunrise-sunset)))
+    (with-temp-buffer
+      (insert dss)
+      (goto-char (point-min))
+      (while (re-search-forward " ([^)]*)" nil t)
+        (replace-match "" nil nil))
+      (goto-char (point-min))
+      (search-forward ",")
+      (buffer-substring (point-min) (match-beginning 0)))))
+
+(defun diary-sunset ()
+  (let ((dss (diary-sunrise-sunset))
+        start end)
+    (with-temp-buffer
+      (insert dss)
+      (goto-char (point-min))
+      (while (re-search-forward " ([^)]*)" nil t)
+        (replace-match "" nil nil))
+      (goto-char (point-min))
+      (search-forward ", ")
+      (setq start (match-end 0))
+      (search-forward " at")
+      (setq end (match-beginning 0))
+      (goto-char start)
+      (capitalize-word 1)
+      (buffer-substring start end))))
+#+end_src
+
+You also need to add a couple of diary s-expressions in one of your agenda
+files:
+
+#+begin_src org-mode
+%%(diary-sunrise)
+%%(diary-sunset)
+#+end_src
+
+The thread on the mailing list that started this can be found [[http://thread.gmane.org/gmane.emacs.orgmode/38723Here%20is%20a%20pointer%20to%20the%20thread%20on%20the%20mailing%20list][here]].
+In comparison to the version posted on the mailing list, this one
+gets rid of the timezone information.
+** Export BBDB contacts to org-contacts.el
+#+index: Address Book!BBDB to org-contacts
+Try this tool by Wes Hardaker:
+
+http://www.hardakers.net/code/bbdb-to-org-contacts/
+
+** Calculating date differences - how to write a simple elisp function
+#+index: Timestamp!date calculations
+#+index: Elisp!technique
+
+Alexander Wingård asked how to calculate the number of days between a
+time stamp in his org file and today (see
+http://thread.gmane.org/gmane.emacs.orgmode/46881).  Although the
+resulting answer is probably not of general interest, the method might
+be useful to a budding Elisp programmer.
+
+Alexander started from an already existing org function,
+=org-evaluate-time-range=.  When this function is called in the context
+of a time range (two time stamps separated by "=--="), it calculates the
+number of days between the two dates and outputs the result in Emacs's
+echo area. What he wanted was a similar function that, when called from
+the context of a single time stamp, would calculate the number of days
+between the date in the time stamp and today. The result should go to
+the same place: Emacs's echo area.
+
+The solution presented in the mail thread is as follows:
+
+#+begin_src emacs-lisp
+(defun aw/org-evaluate-time-range (&optional to-buffer)
+  (interactive)
+  (if (org-at-date-range-p t)
+      (org-evaluate-time-range to-buffer)
+    ;; otherwise, make a time range in a temp buffer and run o-e-t-r there
+    (let ((headline (buffer-substring (point-at-bol) (point-at-eol))))
+      (with-temp-buffer
+	(insert headline)
+	(goto-char (point-at-bol))
+	(re-search-forward org-ts-regexp (point-at-eol) t)
+	(if (not (org-at-timestamp-p t))
+	    (error "No timestamp here"))
+	(goto-char (match-beginning 0))
+	(org-insert-time-stamp (current-time) nil nil)
+	(insert "--")
+	(org-evaluate-time-range to-buffer)))))
+#+end_src
+
+The function assumes that point is on some line with some time stamp
+(or a date range) in it. Note that =org-evaluate-time-range= does not care
+whether the first date is earlier than the second: it will always output
+the number of days between the earlier date and the later date.
+
+As stated before, the function itself is of limited interest (although
+it satisfied Alexander's need).The *method* used might be of wider
+interest however, so here is a short explanation.
+
+The idea is that we want =org-evaluate-time-range= to do all the
+heavy lifting, but that function requires that it be in a date-range
+context. So the function first checks whether it's in a date range
+context already: if so, it calls =org-evaluate-time-range= directly
+to do the work. The trick now is to arrange things so we can call this
+same function in the case where we do *not* have a date range
+context. In that case, we manufacture one: we create a temporary
+buffer, copy the line with the purported time stamp to the temp
+buffer, find the time stamp (signal an error if no time stamp is
+found) and insert a new time stamp with the current time before the
+existing time stamp, followed by "=--=": voilà, we now have a time range
+on which we can apply our old friend =org-evaluate-time-range= to
+produce the answer. Because of the above-mentioned property
+of =org-evaluate-time-range=, it does not matter if the existing
+time stamp is earlier or later than the current time: the correct
+number of days is output.
+
+Note that at the end of the call to =with-temp-buffer=, the temporary
+buffer goes away.  It was just used as a scratch pad for the function
+to do some figuring.
+
+The idea of using a temp buffer as a scratch pad has wide
+applicability in Emacs programming. The rest of the work is knowing
+enough about facilities provided by Emacs (e.g. regexp searching) and
+by Org (e.g. checking for time stamps and generating a time stamp) so
+that you don't reinvent the wheel, and impedance-matching between the
+various pieces.
+
+* Hacking Org: Working with Org-mode and External Programs.
+** Use Org-mode with Screen [Andrew Hyatt]
+#+index: Link!to screen session
+"The general idea is that you start a task in which all the work will
+take place in a shell.  This usually is not a leaf-task for me, but
+usually the parent of a leaf task.  From a task in your org-file, M-x
+ash-org-screen will prompt for the name of a session.  Give it a name,
+and it will insert a link.  Open the link at any time to go the screen
+session containing your work!"
+
+http://article.gmane.org/gmane.emacs.orgmode/5276
+
+#+BEGIN_SRC emacs-lisp
+(require 'term)
+
+(defun ash-org-goto-screen (name)
+  "Open the screen with the specified name in the window"
+  (interactive "MScreen name: ")
+  (let ((screen-buffer-name (ash-org-screen-buffer-name name)))
+    (if (member screen-buffer-name
+                (mapcar 'buffer-name (buffer-list)))
+        (switch-to-buffer screen-buffer-name)
+      (switch-to-buffer (ash-org-screen-helper name "-dr")))))
+
+(defun ash-org-screen-buffer-name (name)
+  "Returns the buffer name corresponding to the screen name given."
+  (concat "*screen " name "*"))
+
+(defun ash-org-screen-helper (name arg)
+  ;; Pick the name of the new buffer.
+  (let ((term-ansi-buffer-name
+	 (generate-new-buffer-name
+	  (ash-org-screen-buffer-name name))))
+    (setq term-ansi-buffer-name
+          (term-ansi-make-term
+	   term-ansi-buffer-name "/usr/bin/screen" nil arg name))
+    (set-buffer term-ansi-buffer-name)
+    (term-mode)
+    (term-char-mode)
+    (term-set-escape-char ?\C-x)
+    term-ansi-buffer-name))
+
+(defun ash-org-screen (name)
+  "Start a screen session with name"
+  (interactive "MScreen name: ")
+  (save-excursion
+    (ash-org-screen-helper name "-S"))
+  (insert-string (concat "[[screen:" name "]]")))
+
+;; And don't forget to add ("screen" . "elisp:(ash-org-goto-screen
+;; \"%s\")") to org-link-abbrev-alist.
+#+END_SRC
+
+** Org Agenda + Appt + Zenity
+    :PROPERTIES:
+    :CUSTOM_ID: org-agenda-appt-zenity
+    :END:
+
+#+index: Appointment!reminders
+#+index: Appt!Zenity
+#+BEGIN_HTML
+<a name="agenda-appt-zenity"></a>
+#+END_HTML
+Russell Adams posted this setup [[http://article.gmane.org/gmane.emacs.orgmode/5806][on the list]].  It makes sure your agenda
+appointments are known by Emacs, and it displays warnings in a [[http://live.gnome.org/Zenity][zenity]]
+popup window.
+
+#+BEGIN_SRC emacs-lisp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; For org appointment reminders
+
+;; Get appointments for today
+(defun my-org-agenda-to-appt ()
+  (interactive)
+  (setq appt-time-msg-list nil)
+  (let ((org-deadline-warning-days 0))    ;; will be automatic in org 5.23
+        (org-agenda-to-appt)))
+
+;; Run once, activate and schedule refresh
+(my-org-agenda-to-appt)
+(appt-activate t)
+(run-at-time "24:01" nil 'my-org-agenda-to-appt)
+
+; 5 minute warnings
+(setq appt-message-warning-time 15)
+(setq appt-display-interval 5)
+
+; Update appt each time agenda opened.
+(add-hook 'org-finalize-agenda-hook 'my-org-agenda-to-appt)
+
+; Setup zenify, we tell appt to use window, and replace default function
+(setq appt-display-format 'window)
+(setq appt-disp-window-function (function my-appt-disp-window))
+
+(defun my-appt-disp-window (min-to-app new-time msg)
+  (save-window-excursion (shell-command (concat
+    "/usr/bin/zenity --info --title='Appointment' --text='"
+    msg "' &") nil nil)))
+#+END_SRC
+
+** Org-Mode + gnome-osd
+#+index: Appointment!reminders
+#+index: Appt!gnome-osd
+Richard Riley uses gnome-osd in interaction with Org-Mode to display
+appointments.  You can look at the code on the [[http://www.emacswiki.org/emacs-en/OrgMode-OSD][emacswiki]].
+
+** remind2org
+#+index: Agenda!Views
+#+index: Agenda!and Remind (external program)
+From Detlef Steuer
+
+http://article.gmane.org/gmane.emacs.orgmode/5073
+
+#+BEGIN_QUOTE
+Remind (http://www.roaringpenguin.com/products/remind) is a very powerful
+command line calendaring program. Its features supersede the possibilities
+of orgmode in the area of date specifying, so that I want to use it
+combined with orgmode.
+
+Using the script below I'm able use remind and incorporate its output in my
+agenda views.  The default of using 13 months look ahead is easily
+changed. It just happens I sometimes like to look a year into the
+future. :-)
+#+END_QUOTE
+
+** Useful webjumps for conkeror
+#+index: Shortcuts!conkeror
+If you are using the [[http://conkeror.org][conkeror browser]], maybe you want to put this into
+your =~/.conkerorrc= file:
+
+#+begin_example
+define_webjump("orglist", "http://search.gmane.org/?query=%s&group=gmane.emacs.orgmode");
+define_webjump("worg", "http://www.google.com/cse?cx=002987994228320350715%3Az4glpcrritm&ie=UTF-8&q=%s&sa=Search&siteurl=orgmode.org%2Fworg%2F");
+#+end_example
+
+It creates two [[http://conkeror.org/Webjumps][webjumps]] for easily searching the Worg website and the
+Org-mode mailing list.
+
+** Use MathJax for HTML export without requiring JavaScript
+#+index: Export!MathJax
+As of 2010-08-14, MathJax is the default method used to export math to HTML.
+
+If you like the results but do not want JavaScript in the exported pages,
+check out [[http://www.jboecker.de/2010/08/15/staticmathjax.html][Static MathJax]], a XULRunner application which generates a static
+HTML file from the exported version. It can also embed all referenced fonts
+within the HTML file itself, so there are no dependencies to external files.
+
+The download archive contains an elisp file which integrates it into the Org
+export process (configurable per file with a "#+StaticMathJax:" line).
+
+Read README.org and the comments in org-static-mathjax.el for usage instructions.
+** Search Org files using lgrep
+#+index: search!lgrep
+Matt Lundin suggests this:
+
+#+begin_src emacs-lisp
+  (defun my-org-grep (search &optional context)
+    "Search for word in org files.
+
+Prefix argument determines number of lines."
+    (interactive "sSearch for: \nP")
+    (let ((grep-find-ignored-files '("#*" ".#*"))
+	  (grep-template (concat "grep <X> -i -nH "
+				 (when context
+				   (concat "-C" (number-to-string context)))
+				 " -e <R> <F>")))
+      (lgrep search "*org*" "/home/matt/org/")))
+
+  (global-set-key (kbd "<f8>") 'my-org-grep)
+#+end_src
+
+** Automatic screenshot insertion
+#+index: Link!screenshot
+Suggested by Russell Adams
+
+#+begin_src emacs-lisp
+  (defun my-org-screenshot ()
+    "Take a screenshot into a time stamped unique-named file in the
+  same directory as the org-buffer and insert a link to this file."
+    (interactive)
+    (setq filename
+          (concat
+           (make-temp-name
+            (concat (buffer-file-name)
+                    "_"
+                    (format-time-string "%Y%m%d_%H%M%S_")) ) ".png"))
+    (call-process "import" nil nil nil filename)
+    (insert (concat "[[" filename "]]"))
+    (org-display-inline-images))
+#+end_src
+
+** Capture invitations/appointments from MS Exchange emails
+#+index: Appointment!MS Exchange
+Dirk-Jan C.Binnema [[http://article.gmane.org/gmane.emacs.orgmode/27684/][provided]] code to do this.  Please check
+[[file:code/elisp/org-exchange-capture.el][org-exchange-capture.el]]
+
+** Audio/video file playback within org mode
+#+index: Link!audio/video
+Paul Sexton provided code that makes =file:= links to audio or video files
+(MP3, WAV, OGG, AVI, MPG, et cetera) play those files using the [[https://github.com/dbrock/bongo][Bongo]] Emacs
+media player library. The user can pause, skip forward and backward in the
+track, and so on from without leaving Emacs. Links can also contain a time
+after a double colon -- when this is present, playback will begin at that
+position in the track.
+
+See the file [[file:code/elisp/org-player.el][org-player.el]]
+
+** Under X11 Keep a window with the current agenda items at all time
+#+index: Agenda!dedicated window
+I struggle to keep (in emacs) a window with the agenda at all times.
+For a long time I have wanted a sticky window that keeps this
+information, and then use my window manager to place it and remove its
+decorations (I can also force its placement in the stack: top always,
+for example).
+
+I wrote a small program in qt that simply monitors an HTML file and
+displays it. Nothing more. It does the work for me, and maybe somebody
+else will find it useful. It relies on exporting the agenda as HTML
+every time the org file is saved, and then this little program
+displays the html file. The window manager is responsible of removing
+decorations, making it sticky, and placing it in same place always.
+
+Here is a screenshot (see window to the bottom right). The decorations
+are removed by the window manager:
+
+http://turingmachine.org/hacking/org-mode/orgdisplay.png
+
+Here is the code. As I said, very, very simple, but maybe somebody will
+find if useful.
+
+http://turingmachine.org/hacking/org-mode/
+
+--daniel german
+
+** Script (thru procmail) to output emails to an Org file
+#+index: Conversion!email to org file
+Tycho Garen sent [[http://comments.gmane.org/gmane.emacs.orgmode/44773][this]]:
+
+: I've [...] created some procmail and shell glue that takes emails and
+: inserts them into an org-file so that I can capture stuff on the go using
+: the email program.
+
+Everything is documented [[http://tychoish.com/code/org-mail/][here]].
+
+** Save File With Different Format for Headings (fileconversion)
+   :PROPERTIES:
+   :CUSTOM_ID: fileconversion
+   :END:
+#+index: Conversion!fileconversion
+
+Using hooks and on the fly
+- when writing a buffer to the file replace the leading stars from headings
+  with a file char
+- when reading a file into the buffer replace the file chars with leading
+  stars for headings
+
+To change to save an Org file in one of the formats or back just add or
+remove the keyword in the STARTUP line and save.
+
+Now you can also change to Fundamental mode to see how the file looks like
+on the level of the file, go back to Org mode, reenter Org mode or change to
+any other major mode and the conversion gets done whenever necessary.
+
+*** Headings Without Leading Stars (hidestarsfile and nbspstarsfile)
+    :PROPERTIES:
+    :CUSTOM_ID: hidestarsfile
+    :END:
+#+index: Conversion!fileconversion hidestarsfile
+
+This is like "a cleaner outline view":
+http://orgmode.org/manual/Clean-view.html
+
+Example of the _file content_ first with leading stars as usual and below
+without leading stars through "#+STARTUP: odd hidestars hidestarsfile":
+
+#+BEGIN_EXAMPLE
+  #+STARTUP: odd hidestars
+  [...]
+  ***** TODO section
+  ******* subsection
+  ********* subsubsec
+            - bla bla
+  ***** section
+        - bla bla
+  ******* subsection
+#+END_EXAMPLE
+
+#+BEGIN_EXAMPLE
+  #+STARTUP: odd hidestars hidestarsfile
+  [...]
+      * TODO section
+        * subsection
+          * subsubsec
+            - bla bla
+      * section
+        - bla bla
+        * subsection
+#+END_EXAMPLE
+
+The latter is convenient for better human readability when an Org file,
+additionally to Emacs, is read with a file viewer or, for smaller edits,
+with an editor not capable of the Org file format.
+
+hidestarsfile is a hack and can not become part of the Org core:
+- An Org file with hidestarsfile can not contain list items with a star as
+  bullet due to the syntax conflict at read time. Mark E. Shoulson suggested
+  to use the non-breaking space which is now implemented in fileconversion
+  as nbspstarsfile as an alternative for hidestarsfile. Although I don't
+  recommend it because an editor like typically e. g. Emacs may render the
+  non-breaking space differently from the space 0x20.
+- An Org file with hidestarsfile can almost not be edited with an Org mode
+  without added functionality of hidestarsfile as long as the file is not
+  converted back.
+
+*** Headings in Markdown Format (markdownstarsfile)
+    :PROPERTIES:
+    :CUSTOM_ID: markdownstarsfile
+    :END:
+#+index: Conversion!fileconversion markdownstarsfile
+
+For "oddeven" you can use markdownstarsfile to be readable or even basically
+editable with Markdown (does not make much sense with "odd", see
+org-convert-to-odd-levels and org-convert-to-oddeven-levels for how to
+convert).
+
+Example of the _file content_:
+
+#+BEGIN_EXAMPLE
+  #+STARTUP: oddeven markdownstarsfile
+  # section level 1
+    1. first item of numbered list (same format in Org and Markdown)
+  ## section level 2
+     - first item of unordered list (same format in Org and Markdown)
+  ### section level 3
+      + first item of unordered list (same format in Org and Markdown)
+  #### section level 4
+       * first item of unordered list (same format in Org and Markdown)
+       * avoid this item type to be compatible with Org hidestarsfile
+#+END_EXAMPLE
+
+An Org file with markdownstarsfile can not contain code comment lines
+prefixed with "#", even not when within source blocks.
+
+*** emacs-lisp code
+    :PROPERTIES:
+    :CUSTOM_ID: fileconversion-code
+    :END:
+#+index: Conversion!fileconversion emacs-lisp code
+
+#+BEGIN_SRC emacs-lisp
+  ;; - fileconversion version 0.6
+  ;; - DISCLAIMER: Make a backup of your Org files before using
+  ;;   my-org-fileconv-*.
+  ;; - supported formats: hidestarsfile, markdownstarsfile
+
+  ;; design summary: fileconversion is a round robin of two states
+  ;; linked by two actions:
+  ;; - state my-org-fileconv-level-org-p is nil: the level is "file"
+  ;;   (encoded)
+  ;; - action my-org-fileconv-decode: replace file char with '*'
+  ;; - state my-org-fileconv-level-org-p is t: the level is "Org"
+  ;;   (decoded)
+  ;; - action my-org-fileconv-encode replace '*' with file char
+
+  (defvar my-org-fileconv-level-org-p nil
+    "Whether level of buffer is Org or only file.
+  nil means the level is file (encoded), non-nil means the level is Org
+  (decoded).")
+  (make-variable-buffer-local 'my-org-fileconv-level-org-p)
+  ;; survive a change of major mode that does kill-all-local-variables,
+  ;; e. g. when reentering Org mode through “C-c C-c” on a STARTUP line
+  (put 'my-org-fileconv-level-org-p 'permanent-local t)
+
+  (add-hook 'org-mode-hook 'my-org-fileconv-init
+            ;; _append_ to hook to have a higher chance that a message
+            ;; from this function will be visible as the last message in
+            ;; the minibuffer
+            t
+            ;; hook addition global
+            nil)
+
+  (defun my-org-fileconv-init ()
+    (interactive)
+    ;; instrument only when converting really from/to an Org _file_, not
+    ;; e. g. for a temp Org buffer unrelated to a file like used e. g.
+    ;; when calling the old Org exporter
+    (when (buffer-file-name)
+      (message "INF: my-org-fileconv-init, buffer: %s" (buffer-name))
+      (my-org-fileconv-decode)
+      ;; the hooks are not permanent-local, this way and as needed they
+      ;; will disappear when the major mode of the buffer changes
+      (add-hook 'change-major-mode-hook 'my-org-fileconv-encode nil
+                ;; hook addition limited to buffer locally
+                t)
+      (add-hook 'before-save-hook 'my-org-fileconv-encode nil
+                ;; hook addition limited to buffer locally
+                t)
+      (add-hook 'after-save-hook 'my-org-fileconv-decode nil
+                ;; hook addition limited to buffer locally
+                t)))
+
+  (defun my-org-fileconv-re ()
+    "Check whether there is a STARTUP line for fileconversion.
+  If found then return the expressions required for the conversion."
+    (save-excursion
+      (beginning-of-buffer)
+      (let (re-list (count 0))
+        (while (re-search-forward "^#\\+STARTUP:" nil t)
+          ;; #+STARTUP: hidestarsfile
+          (when (string-match-p "\\bhidestarsfile\\b"
+                                (thing-at-point 'line))
+            ;; exclude e. g.:
+            ;; - line starting with star for bold emphasis
+            ;; - line of stars to underline section title in loosely
+            ;;   quoted ASCII style (star at end of line)
+            (setq re-list '("\\(\\* \\)"  ; common-re
+                            ?\ ))         ; file-char
+            (setq count (1+ count)))
+          ;; #+STARTUP: nbspstarsfile
+          (when (string-match-p "\\bnbspstarsfile\\b"
+                                (thing-at-point 'line))
+            (setq re-list '("\\(\\* \\)"  ; common-re
+                            ?\xa0))       ; file-char non-breaking space
+            (setq count (1+ count)))
+          ;; #+STARTUP: markdownstarsfile
+          (when (string-match-p "\\bmarkdownstarsfile\\b"
+                                (thing-at-point 'line))
+            ;; exclude e. g.:
+            ;; - #STARTUP:
+            (setq re-list '("\\( \\)"  ; common-re
+                            ?#))       ; file-char
+            (setq count (1+ count))))
+        (when (> count 1)
+          (error "ERR: more than one fileconversion found"))
+        re-list)))
+
+  (defun my-org-fileconv-decode ()
+    "In headings replace file char with '*'."
+    (let ((re-list (my-org-fileconv-re)))
+      (when (and re-list (not my-org-fileconv-level-org-p))
+        ;; no `save-excursion' to be able to keep point in case of error
+        (let* ((common-re (nth 0 re-list))
+               (file-char (nth 1 re-list))
+               (file-re   (concat "^" (string file-char) "+" common-re))
+               (org-re    (concat "^\\*+" common-re))
+               len
+               (p         (point)))
+          (beginning-of-buffer)
+          ;; syntax check
+          (when (re-search-forward org-re nil t)
+            (goto-char (match-beginning 0))
+            (org-reveal)
+            (error
+             "ERR: my-org-fileconv-decode syntax conflict at point"))
+          (beginning-of-buffer)
+          ;; substitution
+          (with-silent-modifications
+            (while (re-search-forward file-re nil t)
+              (goto-char (match-beginning 0))
+              ;; faster than a lisp call of insert and delete on each
+              ;; single char
+              (setq len (- (match-beginning 1) (match-beginning 0)))
+              (insert-char ?* len)
+              (delete-char len)))
+          (goto-char p))))
+
+          ;; notes for ediff when only one file has fileconversion:
+          ;; - The changes to the buffer with fileconversion until here
+          ;;   are not regarded by ediff-files because the first call to
+          ;;   diff is made with the bare files directly. Only
+          ;;   ediff-update-diffs and ediff-buffers write the decoded
+          ;;   buffers to temp files and then call diff with them.
+          ;; - Workarounds (choose one):
+          ;;   - after ediff-files first do a "!" (ediff-update-diffs)
+          ;;     in the "*Ediff Control Panel*"
+          ;;   - instead of using ediff-files first open the files and
+          ;;     then run ediff-buffers (better for e. g. a script that
+          ;;     takes two files as arguments and uses "emacs --eval")
+
+    ;; the level is Org most of all when no fileconversion is in effect
+    (setq my-org-fileconv-level-org-p t))
+
+  (defun my-org-fileconv-encode ()
+    "In headings replace '*' with file char."
+    (let ((re-list (my-org-fileconv-re)))
+      (when (and re-list my-org-fileconv-level-org-p)
+        ;; no `save-excursion' to be able to keep point in case of error
+        (let* ((common-re (nth 0 re-list))
+               (file-char (nth 1 re-list))
+               (file-re   (concat "^" (string file-char) "+" common-re))
+               (org-re    (concat "^\\*+" common-re))
+               len
+               (p         (point)))
+          (beginning-of-buffer)
+          ;; syntax check
+          (when (re-search-forward file-re nil t)
+            (goto-char (match-beginning 0))
+            (org-reveal)
+            (error
+             "ERR: my-org-fileconv-encode syntax conflict at point"))
+          (beginning-of-buffer)
+          ;; substitution
+          (with-silent-modifications
+            (while (re-search-forward org-re nil t)
+              (goto-char (match-beginning 0))
+              ;; faster than a lisp call of insert and delete on each
+              ;; single char
+              (setq len (- (match-beginning 1) (match-beginning 0)))
+              (insert-char file-char len)
+              (delete-char len)))
+          (goto-char p)
+          (setq my-org-fileconv-level-org-p nil))))
+    nil)  ;; for the hook
+#+END_SRC
+
+Michael Brand
+
+** Meaningful diff for org files in a git repository
+#+index: git!diff org files
+Since most diff utilities are primarily meant for source code, it is
+difficult to read diffs of text files like ~.org~ files easily. If you
+version your org directory with a SCM like git you will know what I
+mean. However for git, there is a way around. You can use
+=gitattributes= to define a custom diff driver for org files. Then a
+regular expression can be used to configure how the diff driver
+recognises a "function".
+
+Put the following in your =<org_dir>/.gitattributes=.
+: *.org	diff=org
+Then put the following lines in =<org_dir>/.git/config=
+: [diff "org"]
+: 	xfuncname = "^(\\*+ [a-zA-Z0-9]+.+)$"
+
+This will let you see diffs for org files with each hunk identified by
+the unmodified headline closest to the changes. After the
+configuration a diff should look something like the example below.
+
+#+begin_example
+diff --git a/org-hacks.org b/org-hacks.org
+index a0672ea..92a08f7 100644
+--- a/org-hacks.org
++++ b/org-hacks.org
+@@ -2495,6 +2495,22 @@ ** Script (thru procmail) to output emails to an Org file
+ 
+ Everything is documented [[http://tychoish.com/code/org-mail/][here]].
+ 
++** Meaningful diff for org files in a git repository
++
++Since most diff utilities are primarily meant for source code, it is
++difficult to read diffs of text files like ~.org~ files easily. If you
++version your org directory with a SCM like git you will know what I
++mean. However for git, there is a way around. You can use
++=gitattributes= to define a custom diff driver for org files. Then a
++regular expression can be used to configure how the diff driver
++recognises a "function".
++
++Put the following in your =<org_dir>/.gitattributes=.
++: *.org	diff=org
++Then put the following lines in =<org_dir>/.git/config=
++: [diff "org"]
++: 	xfuncname = "^(\\*+ [a-zA-Z0-9]+.+)$"
++
+ * Musings
+ 
+ ** Cooking?  Brewing?
+#+end_example
+
+* Musings
+
+** Cooking?  Brewing?
+#+index: beer!brewing
+#+index: cooking!conversions
+See [[http://article.gmane.org/gmane.emacs.orgmode/44981][this message]] from Erik Hetzner:
+
+It currently does metric/english conversion, and a few other tricks.
+Basically I just use calc’s units code.  I think scaling recipes, or
+turning percentages into weights would be pretty easy.
+
+  https://gitorious.org/org-cook/org-cook
+
+There is also, for those interested:
+
+  https://gitorious.org/org-brew/org-brew
+
+for brewing beer. This is again, mostly just calc functions, including
+hydrometer correction, abv calculation, priming sugar for a given CO_2
+volume, etc. More integration with org-mode should be possible: for
+instance it would be nice to be able to use a lookup table (of ingredients)
+to calculate target original gravity, IBUs, etc.
+

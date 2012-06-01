@@ -1,4 +1,6 @@
 {
+  "name": "solarized-css",
+  "version": "0.0.0",
   "dependencies": {
     "uglifycss": {
       "version": "0.0.5"
@@ -16,6 +18,12 @@
           "version": "0.7.0"
         }
       }
+    },
+    "coffee-script": {
+      "version": "1.3.3"
+    },
+    "uglify-js": {
+      "version": "1.3.0"
     }
   }
 }

@@ -2,8 +2,11 @@
 
 set -e
 
-./node_modules/.bin/stylus src/solarized-dark.styl -o .
-./node_modules/.bin/stylus src/solarized-light.styl -o .
+sol_src=src/solarized-css
+npm_bin=./node_modules/.bin
 
-./node_modules/.bin/uglifycss solarized-dark.css > solarized-dark-min.css
-./node_modules/.bin/uglifycss solarized-light.css > solarized-light-min.css
+${npm_bin}/stylus ${sol_src}/solarized-dark.styl -o .
+${npm_bin}/stylus ${sol_src}/solarized-light.styl -o .
+
+${npm_bin}/uglifycss solarized-dark.css > solarized-dark-min.css
+${npm_bin}/uglifycss solarized-light.css > solarized-light-min.css

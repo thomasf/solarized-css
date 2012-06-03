@@ -15,7 +15,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 * Markdown
 * Any HTML document that mostly relies on standard HTML elements.
 
-## Download css
+## Download CSS
 
 **Light:** 
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
@@ -25,7 +25,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
-## Github
+## GitHub
 
 Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 

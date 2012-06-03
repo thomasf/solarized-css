@@ -11,7 +11,7 @@ Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for
 
 ### Download!
 
-* [http://thomasf.github.com/solarized-css/solarized-light.min.css]
+* [http://thomasf.github.com/solarized-css/solarized-light.min.css]()
 
 ### GitHub
 

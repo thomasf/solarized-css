@@ -19,14 +19,14 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 ## Download
 
-**Light:** 
- / [Uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
+**Light css:** 
+[Uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
  / [Minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
- /
+
  
-**Dark:**
-[Uncompressed CSS](http://thomasf.github.com/solarized-css/solarized-dark.css)
-[Minimized CSS](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
+**Dark css:**
+[Uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
+ / [Minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
 ## Github
 

@@ -20,13 +20,13 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 ## Download
 
 **Light css:** 
-[Uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
- / [Minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
+[uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
+ / [minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
 
  
 **Dark css:**
-[Uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
- / [Minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
+[uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
+ / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
 ## Github
 

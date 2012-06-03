@@ -17,7 +17,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 ## Get it!
 
-### Download CSS
+### Download css
 
 **Light:** 
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)

@@ -29,7 +29,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 ### Github
 
-Visit the repository at [github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css) For source, build scripts, README, source and acknowledgments.
+**[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
 ## Use it!
 

@@ -1,6 +1,6 @@
 # Solarized HTML stylesheet
 
-This project aim is to provide general solarized light and dark themes
+This project aim is to provide general solarized light and dark colorshcemes
 for HTML documents that mostly relies on standard HTML elements.
 
 For examples and some more info, visit the [Solarized-CSS GitHub page](http://thomasf.github.com/solarized-css/)

@@ -6,10 +6,10 @@
 
 ## What?
 
-This project aim is to provide general solarized light and dark themes
+This project aim is to provide general solarized light and dark colorschemes
 for HTML documents.
 
-Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
+Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorschemes for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
 ## Targeted integrations
 
@@ -19,11 +19,11 @@ Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for
 
 ## Download
 
-**Solarized light CSS**
+**Light colorscheme:**
 [Uncompressed CSS](http://thomasf.github.com/solarized-css/solarized-light.css)
 [Minimized CSS](http://thomasf.github.com/solarized-css/solarized-light.min.css)
 
-**Solarized dark CSS**
+**Dark colorscheme:**
 [Uncompressed CSS](http://thomasf.github.com/solarized-css/solarized-dark.css)
 [Minimized CSS](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 

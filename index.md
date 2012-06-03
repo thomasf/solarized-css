@@ -17,9 +17,12 @@ Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for
 
 
 # Download
-[Solarized light minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
-[Solarized light minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
-[Solarized light minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
+
+## CSS
+
+**Solarized light:**
+[Full CSS](http://thomasf.github.com/solarized-css/solarized-light.css)
+[Minimized CSS](http://thomasf.github.com/solarized-css/solarized-light.min.css)
 
 
 

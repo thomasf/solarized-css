@@ -17,12 +17,15 @@ Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for
 * Markdown
 * Any HTML document that mostly relies on standard HTML elements.
 
-
 ## Download
 
-**Solarized light:**
+**Solarized light CSS**
 [Full CSS](http://thomasf.github.com/solarized-css/solarized-light.css)
 [Minimized CSS](http://thomasf.github.com/solarized-css/solarized-light.min.css)
+
+**Solarized dark CSS**
+[Full CSS](http://thomasf.github.com/solarized-css/solarized-dark.css)
+[Minimized CSS](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
 ## Github
 
@@ -56,10 +59,10 @@ Put this or something similar at the top of your .org document:
 - [Org mode](test/org-hacks.html) [(org source)](test/org-hacks.org)
 
 ## Acknowledgments
-* Ethan Schoonover for creating the [solarized](http://ethanschoonover.com/solarized) color scheme.
+* Ethan Schoonover for creating the [solarized](http://ethanschoonover.com/solarized) color scheme
 * HTML element test page based on [snippr snippet](http://snipplr.com/view/8121/)
 * Org mode test page from [worg](http://orgmode.org/worg/)
 * Markdown test page from [markdowncss](https://bitbucket.org/kevinburke/markdowncss/)
-* [normalize.css](http://necolas.github.com/normalize.css/).
+* Normalize.css, [normalize.css](http://necolas.github.com/normalize.css/)
 
 </div>

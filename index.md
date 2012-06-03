@@ -9,13 +9,11 @@ for HTML documents.
 
 Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorschemes for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
-## Targeted integrations
+### Targeted integrations
 
 * Org mode HTML exports
 * Markdown
 * Any HTML document that mostly relies on standard HTML elements.
-
-## Get it!
 
 ### Download css
 
@@ -31,9 +29,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
-## Use it!
-
-### With any HTML document
+### Use it without downloading With any HTML document
 
 For basic usage, just insert one of these links into the `<head>` section of any HTML file.
 
@@ -45,12 +41,19 @@ For basic usage, just insert one of these links into the `<head>` section of any
 
     <link href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
 
-### With Org mode documents
+### Use it with Org mode documents
 
 Put this or something similar at the top of your .org document:
 
+**Light version:**
+
     #+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
     #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
+
+**Dark version:**
+
+    #+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
+    #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" />
 
 ## Examples
 - [Most or all HTML elements.](test/html.html)

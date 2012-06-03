@@ -4,8 +4,6 @@
 
 # Solarized CSS
 
-## What?
-
 This project aim is to provide general solarized light and dark colorschemes
 for HTML documents.
 
@@ -17,7 +15,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 * Markdown
 * Any HTML document that mostly relies on standard HTML elements.
 
-## Download
+## Get it!
 
 **Light css:** 
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
@@ -28,10 +26,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
-## Github
-
-For source, build scripts, README, source and acknowledgments:
-[https://github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)
+**Github:** [github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css) For source, build scripts, README, source and acknowledgments.
 
 ## Use it!
 

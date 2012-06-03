@@ -9,6 +9,10 @@ for HTML documents.
 
 Basically I wanted a [solarized](http://ethanschoonover.com/solarized) theme for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
+### Download!
+
+* [http://thomasf.github.com/solarized-css/solarized-light.min.css]
+
 ### GitHub
 
 For source, build scripts, README, source and acknowledgments:

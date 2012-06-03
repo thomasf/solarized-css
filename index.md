@@ -17,13 +17,13 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 ## Get it!
 
-#### CSS
+### Download CSS
 
-**Light css:** 
+**Light:** 
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
  
-**Dark css:**
+**Dark:**
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 

@@ -29,7 +29,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
-## Using with html without downloading
+### Using in HTML documents without downloading
 
 Just insert one of these lines into the `<head>` section of any HTML file.
 
@@ -41,7 +41,7 @@ Just insert one of these lines into the `<head>` section of any HTML file.
 
     <link href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
 
-## Using with org mode without downloading
+## Using in Org mode HTML exports without downloading
 
 Put this or something similar at the top of your .org document:
 

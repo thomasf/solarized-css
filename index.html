@@ -1,0 +1,48 @@
+<link rel="stylesheet" href="solarized-light.min.css" type="text/css" media="screen" />
+<style type="text/css" media="screen">#wrapper { margin: auto; max-width:1000px; } p { max-width: 600px; } </style>
+<div id="wrapper">
+
+<h1 id="solarized-css">Solarized CSS</h1>
+<p>This project aim is to provide general solarized light and dark colorschemes for HTML documents.</p>
+<p>Basically I wanted <a href="http://ethanschoonover.com/solarized">solarized</a> colorschemes for <a href="http://orgmode.org">org-mode</a> HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.</p>
+<p>Repository: <strong><a href="https://github.com/thomasf/solarized-css">http://github.com/thomasf/solarized-css</a></strong></p>
+<h2 id="targeted-integrations">Targeted integrations</h2>
+<ul>
+<li>Org mode HTML exports</li>
+<li>Markdown</li>
+<li>Any HTML document that mostly relies on standard HTML elements.</li>
+</ul>
+<h2 id="download-css">Download CSS</h2>
+<p><strong>Light:</strong> <a href="http://thomasf.github.com/solarized-css/solarized-light.css">uncompressed</a> / <a href="http://thomasf.github.com/solarized-css/solarized-light.min.css">minimized</a></p>
+<p><strong>Dark:</strong> <a href="http://thomasf.github.com/solarized-css/solarized-dark.css">uncompressed</a> / <a href="http://thomasf.github.com/solarized-css/solarized-dark.min.css">minimized</a></p>
+<h2 id="using-in-html-documents-without-downloading">Using in HTML documents without downloading</h2>
+<p>Just insert one of these lines into the <code>&lt;head&gt;</code> section of any HTML file.</p>
+<p><strong>Light version:</strong></p>
+<pre><code>&lt;link href=&quot;http://thomasf.github.com/solarized-css/solarized-light.min.css&quot; rel=&quot;stylesheet&quot;&gt;&lt;/link&gt;</code></pre>
+<p><strong>Dark version:</strong></p>
+<pre><code>&lt;link href=&quot;http://thomasf.github.com/solarized-css/solarized-dark.min.css&quot; rel=&quot;stylesheet&quot;&gt;&lt;/link&gt;</code></pre>
+<h2 id="using-in-org-mode-html-exports-without-downloading">Using in Org mode HTML exports without downloading</h2>
+<p>Put this or something similar at the top of your .org document:</p>
+<p><strong>Light version:</strong></p>
+<pre><code>#+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
+#+STYLE: &lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; href=&quot;http://thomasf.github.com/solarized-css/solarized-light.min.css&quot; /&gt;</code></pre>
+<p><strong>Dark version:</strong></p>
+<pre><code>#+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
+#+STYLE: &lt;link rel=&quot;stylesheet&quot; type=&quot;text/css&quot; href=&quot;http://thomasf.github.com/solarized-css/solarized-dark.min.css&quot; /&gt;</code></pre>
+<h2 id="examples">Examples</h2>
+<ul>
+<li><a href="test/html.html">Most or all HTML elements.</a></li>
+<li><a href="test/markdown.html">Markdown</a> <a href="test/markdown.md">(markdown source)</a></li>
+<li><a href="test/org-hacks.html">Org mode</a> <a href="test/org-hacks.org">(org source)</a></li>
+</ul>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<ul>
+<li>Ethan Schoonover for creating the <a href="http://ethanschoonover.com/solarized">solarized</a> color scheme</li>
+<li>HTML element test page based on <a href="http://snipplr.com/view/8121/">snippr snippet</a></li>
+<li>Org mode test page from <a href="http://orgmode.org/worg/">worg</a></li>
+<li>Markdown test page from <a href="https://bitbucket.org/kevinburke/markdowncss/">markdowncss</a></li>
+<li>Normalize.css, <a href="http://necolas.github.com/normalize.css/">normalize.css</a></li>
+</ul>
+</div>
+
+

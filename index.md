@@ -29,7 +29,7 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 
 Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
-### Using in HTML documents without downloading
+## Using in HTML documents without downloading
 
 Just insert one of these lines into the `<head>` section of any HTML file.
 

@@ -9,13 +9,13 @@ for HTML documents.
 
 Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorschemes for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
-### Targeted integrations
+## Targeted integrations
 
 * Org mode HTML exports
 * Markdown
 * Any HTML document that mostly relies on standard HTML elements.
 
-### Download css
+## Download css
 
 **Light:** 
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
@@ -25,13 +25,13 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
 
-### Github
+## Github
 
 Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
-### Use it without downloading With any HTML document
+## Using with html without downloading
 
-For basic usage, just insert one of these links into the `<head>` section of any HTML file.
+Just insert one of these lines into the `<head>` section of any HTML file.
 
 **Light version:**
 
@@ -41,7 +41,7 @@ For basic usage, just insert one of these links into the `<head>` section of any
 
     <link href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
 
-### Use it with Org mode documents
+## Using with org mode without downloading
 
 Put this or something similar at the top of your .org document:
 

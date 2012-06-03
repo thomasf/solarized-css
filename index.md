@@ -9,6 +9,8 @@ for HTML documents.
 
 Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorschemes for [org-mode](http://orgmode.org) HTML exports. It is supposed to be used as a single stylesheet for HTML documents that uses regular HTML elements.
 
+Repository: **[http://github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
+
 ## Targeted integrations
 
 * Org mode HTML exports
@@ -24,10 +26,6 @@ Basically I wanted [solarized](http://ethanschoonover.com/solarized) colorscheme
 **Dark:**
 [uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
  / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
-
-## GitHub
-
-Repository: **[github.com/thomasf/solarized-css](https://github.com/thomasf/solarized-css)**
 
 ## Using in HTML documents without downloading
 

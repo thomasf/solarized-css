@@ -244,9 +244,25 @@ h6 {
 .TODO {
   background-color: #2aa198;
 }
+.NEXT {
+  background-color: #268bd2;
+}
+.ACTIVE {
+  foreground-color: #fdf6e3;
+  background-color: #859900;
+}
 .DONE {
   background-color: #859900;
 }
-.NEXT {
-  background-color: #268bd2;
+.WAITING {
+  foreground-color: #cb4b16;
+}
+.HOLD {
+  foreground-color: #d33682;
+}
+.NOTE {
+  foreground-color: #d33682;
+}
+.CANCELLED {
+  foreground-color: #859900;
 }

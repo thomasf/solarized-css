@@ -242,9 +242,9 @@ h6 {
   padding: 0 0.2em;
 }
 .tag {
-  -webkit-border-radius: 0.5em;
-  -moz-border-radius: 0.5em;
-  border-radius: 0.5em;
+  -webkit-border-radius: 0.35em;
+  -moz-border-radius: 0.35em;
+  border-radius: 0.35em;
 }
 .TODO {
   -webkit-border-radius: 0.2em;
@@ -262,7 +262,6 @@ h6 {
   -webkit-border-radius: 0.2em;
   -moz-border-radius: 0.2em;
   border-radius: 0.2em;
-  foreground-color: #fdf6e3;
   background-color: #268bd2;
 }
 .DONE {

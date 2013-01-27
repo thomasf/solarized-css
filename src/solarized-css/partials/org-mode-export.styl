@@ -9,27 +9,43 @@
   background-color: $red
   padding: 0 0.2em
 
+border-radius(n)
+  -webkit-border-radius n
+  -moz-border-radius n
+  border-radius n
+  
+rounded()
+  border-radius 0.2em
+
 .TODO
+  rounded()
   background-color: $cyan
 
 .NEXT
+  rounded()
   background-color: $blue
 
 .ACTIVE
+  rounded()
   foreground-color: $bg
   background-color: $green
 
 .DONE
+  rounded()
   background-color: $green
 
 .WAITING
+  rounded()
   foreground-color: $orange
 
 .HOLD
+  rounded()
   foreground-color: $magenta
 
 .NOTE
+  rounded()
   foreground-color: $magenta
 
 .CANCELLED
+  rounded()
   foreground-color: $green

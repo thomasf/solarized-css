@@ -1,15 +1,14 @@
+#+TITLE:      Org ad hoc code, quick hacks and workarounds
+#+AUTHOR:     Worg people
+#+EMAIL:      mdl AT imapmail DOT org
 #+OPTIONS:    H:3 num:nil toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t TeX:t LaTeX:t skip:nil d:(HIDE) tags:not-in-toc
 #+STARTUP:    align fold nodlcheck hidestars oddeven lognotestate
 #+SEQ_TODO:   TODO(t) INPROGRESS(i) WAITING(w@) | DONE(d) CANCELED(c@)
 #+TAGS:       Write(w) Update(u) Fix(f) Check(c)
-#+TITLE:      Org ad hoc code, quick hacks and workarounds
-#+AUTHOR:     Worg people
-#+EMAIL:      mdl AT imapmail DOT org
 #+LANGUAGE:   en
 #+PRIORITIES: A C B
 #+CATEGORY:   worg
-#+INFOJS_OPT: view:info toc:t ltoc:t mouse:underline buttons:0 path:../org-info.js
-#+STYLE:    <link rel="stylesheet" type="text/css" href="../solarized-light.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
 
 # This file is the default header for new Org files in Worg.  Feel free
 # to tailor it to your needs.
@@ -20,64 +19,99 @@ This page is for ad hoc bits of code. Feel free to add quick hacks and
 workaround. Go crazy.
 
 * Hacking Org: Working within Org-mode.
+** Org Agenda
+
+*** Picking up a random task in the global TODO list
+
+Tony day [[http://mid.gmane.org/m2zk19l1me.fsf%2540gmail.com][shared]] [[https://gist.github.com/4343164][this gist]] to pick up a
+random task.
+
 ** Building and Managing Org
-*** Compiling Org without make
+*** Generating autoloads and Compiling Org without make
     :PROPERTIES:
     :CUSTOM_ID: compiling-org-without-make
     :END:
 
 #+index: Compilation!without make
 
-This file is the result of  [[http://article.gmane.org/gmane.emacs.orgmode/15264][one of our discussions]] on the mailing list.
-Enhancements welcome.
+  Compilation is optional, but you _must_ update the autoloads file
+  each time you update org, even when you run org uncompiled!
 
-To use this function, adjust the variables =my/org-lisp-directory= and
-=my/org-compile-sources= to suite your needs.
+  Starting with Org 7.9 you'll find functions for creating the
+  autoload files and do byte-compilation in =mk/org-fixup.el=.  When
+  you execute the commands below, your current directory must be where
+  org has been unpacked into, in other words the file =README= should
+  be found in your current directory and the directories =lisp= and
+  =etc= should be subdirectories of it.  The command =emacs= should be
+  found in your =PATH= and start the Emacs version you are using.  To
+  make just the autoloads file do:
+  : emacs -batch -Q -L lisp -l ../mk/org-fixup -f org-make-autoloads
+  To make the autoloads file and byte-compile org:
+  : emacs -batch -Q -L lisp -l ../mk/org-fixup -f org-make-autoloads-compile
+  To make the autoloads file and byte-compile all of org again:
+  : emacs -batch -Q -L lisp -l ../mk/org-fixup -f org-make-autoloads-compile-force
+  If you are not using Git, you'll have to make fake version strings
+  first if =org-version.el= is not already available (if it is, you
+  could also edit the version strings there).
+  : emacs -batch -Q -L lisp -l ../mk/org-fixup \
+  : --eval '(let ((org-fake-release "7.9.1")(org-fake-git-version "7.9.1-fake"))\
+  : (org-make-autoloads))'
+  The above assumes a
+  POSIX shell for its quoting.  Windows =CMD.exe= has quite different
+  quoting rules and this won't work, so your other option is to start
+  Emacs like this
+  : emacs -Q -L lisp -l ../mk/org-fixup
+  then paste the following into the =*scratch*= buffer
+#+BEGIN_SRC emacs-lisp
+  (let ((org-fake-release     "7.9.1")
+        (org-fake-git-version "7.9.1-fake"))
+    (org-make-autoloads))
+#+END_SRC
+  position the cursor after the closing paren and press =C-j= or =C-x
+  C-e= to evaluate the form.  Of course you can replace
+  =org-make-autoloads= with =org-make-autoloads-compile= or even
+  =org-make-autoloads-compile-force= if you wish with both variants.
+
+  For *older org versions only* (that do not yet have
+  =mk/org-fixup.el=), you can use the definitions below.  To use
+  this function, adjust the variables =my/org-lisp-directory= and
+  =my/org-compile-sources= to suit your needs.  If you have
+  byte-compiled org, but want to run org uncompiled again, just remove
+  all =*.elc= files in the =lisp/= directory, set
+  =my/org-compile-sources= to =nil=.
 
 #+BEGIN_SRC emacs-lisp
-(defvar my/org-lisp-directory "~/.emacs.d/org/lisp"
-  "Directory where your org-mode files live.")
-
-(defvar my/org-compile-sources t
-  "If `nil', never compile org-sources. `my/compile-org' will only create
-the autoloads file `org-install.el' then. If `t', compile the sources, too.")
-
-;; Customize:
-(setq my/org-lisp-directory "~/.emacs.d/org/lisp")
-
-;; Customize:
-(setq  my/org-compile-sources t)
-
-(defun my/compile-org(&optional directory)
-  "Compile all *.el files that come with org-mode."
-  (interactive)
-  (setq directory (concat
-                  	(file-truename
-                    (or directory my/org-lisp-directory)) "/"))
-
-  (add-to-list 'load-path directory)
-
-  (let ((list-of-org-files (file-expand-wildcards (concat directory "*.el"))))
-
-    ;; create the org-install file
-    (require 'autoload)
-    (setq esf/org-install-file (concat directory "org-install.el"))
-    (find-file esf/org-install-file)
-    (erase-buffer)
-    (mapc (lambda (x)
-            (generate-file-autoloads x))
-          list-of-org-files)
-    (insert "\n(provide (quote org-install))\n")
-    (save-buffer)
-    (kill-buffer)
-    (byte-compile-file esf/org-install-file t)
-
-    (dolist (f list-of-org-files)
-      (if (file-exists-p (concat f "c")) ; delete compiled files
-          (delete-file (concat f "c")))
-      (if my/org-compile-sources     ; Compile, if `my/org-compile-sources' is t
-          (byte-compile-file f)))))
-#+END_SRC
+  (defvar my/org-lisp-directory "~/.emacs.d/org/lisp/"
+    "Directory where your org-mode files live.")
+  
+  (defvar my/org-compile-sources t
+    "If `nil', never compile org-sources. `my/compile-org' will only create
+  the autoloads file `org-loaddefs.el' then. If `t', compile the sources, too.")
+  
+  ;; Customize: (must end with a slash!)
+  (setq my/org-lisp-directory "~/.emacs.d/org/lisp/")
+  
+  ;; Customize:
+  (setq  my/org-compile-sources t)
+  
+  (defun my/compile-org(&optional directory)
+    "Generate autoloads file org-loaddefs.el.  Optionally compile
+     all *.el files that come with org-mode."
+    (interactive)
+    (defun my/compile-org()
+      "Generate autoloads file org-loaddefs.el.  Optionally compile
+       all *.el files that come with org-mode."
+      (interactive)
+      (let ((dirlisp (file-name-directory my/org-lisp-directory)))
+        (add-to-list 'load-path dirlisp)
+        (require 'autoload)
+        (let ((generated-autoload-file (concat dirlisp "org-loaddefs.el")))
+          ;; create the org-loaddefs file
+          (update-directory-autoloads dirlisp)
+          (when my/org-compile-sources
+            ;; optionally byte-compile
+            (byte-recompile-directory dirlisp 0 'force)))))
+  #+END_SRC
 *** Reload Org
 
 #+index: Initialization!Reload
@@ -503,7 +537,49 @@ If you think you might have subtrees with misplaced =SCHEDULED= and
 	 (message "All subtrees checked."))))))
 #+end_src
 
+*** Sorting list by checkbox type
+
+#+index: checkbox!sorting
+
+You can use a custom function to sort list by checkbox type.
+Here is a function suggested by Carsten:
+
+#+BEGIN_SRC emacs-lisp
+(defun org-sort-list-by-checkbox-type ()
+  "Sort list items according to Checkbox state."
+  (interactive)
+  (org-sort-list
+   nil ?f
+   (lambda ()
+     (if (looking-at org-list-full-item-re)
+	 (cdr (assoc (match-string 3)
+		     '(("[X]" . 1) ("[-]" . 2) ("[ ]" . 3) (nil . 4))))
+       4))))
+#+END_SRC
+
+Use the function above directly on the list.  If you want to use an
+equivalent function after =C-c ^ f=, use this one instead:
+
+#+BEGIN_SRC emacs-lisp
+  (defun org-sort-list-by-checkbox-type-1 ()
+    (lambda ()
+      (if (looking-at org-list-full-item-re)
+          (cdr (assoc (match-string 3)
+                      '(("[X]" . 1) ("[-]" . 2) ("[ ]" . 3) (nil . 4))))
+        4)))
+#+END_SRC
+
 ** Org Table
+*** Align all tables in a file
+
+Andrew Young provided this function in [[http://thread.gmane.org/gmane.emacs.orgmode/58974/focus%3D58976][this thread]]:
+
+#+begin_src emacs-lisp
+  (defun my-align-all-tables ()
+    (interactive)
+    (org-table-map-tables 'org-table-align 'quietly))
+#+end_src
+
 *** Transpose table
 #+index: Table!Calculation
     :PROPERTIES:
@@ -607,10 +683,10 @@ Nick Dokos [[http://article.gmane.org/gmane.emacs.orgmode/15694][suggested]]:
 
 Try the following:
 
-| Start Date |   End Date | Duration |
-|------------+------------+----------|
-| 2004.08.07 | 2005.07.08 |      335 |
-:#+TBLFM: $3=(date(<$2>)-date(<$1>))
+: | Start Date |   End Date | Duration |
+: |------------+------------+----------|
+: | 2004.08.07 | 2005.07.08 |      335 |
+: #+TBLFM: $3=(date(<$2>)-date(<$1>))
 
 See [[http://thread.gmane.org/gmane.emacs.orgmode/7741][this thread]] as well as [[http://article.gmane.org/gmane.emacs.orgmode/7753][this post]] (which is really a followup on the
 above).  The problem that this last article pointed out was solved in [[http://article.gmane.org/gmane.emacs.orgmode/8001][this
@@ -1004,6 +1080,35 @@ or a function:
 #+end_src
 
 They put the link destination on the killring and can be easily bound to a key.
+
+*** Insert link with HTML title as default description
+When using `org-insert-link' (`C-c C-l') it might be useful to extract contents
+from HTML <title> tag and use it as a default link description. Here is a way to
+accomplish this:
+
+#+begin_src emacs-lisp
+(require 'mm-url) ; to include mm-url-decode-entities-string
+
+(defun my-org-insert-link ()
+  "Insert org link where default description is set to html title."
+  (interactive)
+  (let* ((url (read-string "URL: "))
+         (title (get-html-title-from-url url)))
+    (org-insert-link nil url title)))
+
+(defun get-html-title-from-url (url)
+  "Return content in <title> tag."
+  (let (x1 x2 (download-buffer (url-retrieve-synchronously url)))
+    (save-excursion
+      (set-buffer download-buffer)
+      (beginning-of-buffer)
+      (setq x1 (search-forward "<title>"))
+      (search-forward "</title>")
+      (setq x2 (search-backward "<"))
+      (mm-url-decode-entities-string (buffer-substring-no-properties x1 x2)))))
+#+end_src
+
+Then just use `M-x my-org-insert-link' instead of `org-insert-link'.
 
 ** Archiving Content in Org-Mode
 *** Preserve top level headings when archiving to a file
@@ -1892,6 +1997,25 @@ added willy-nilly any time that the statistics cookie is changed.
                   (org-todo 'todo)))))))
 #+end_src
 
+*** Links to custom agenda views
+    :PROPERTIES:
+    :CUSTOM_ID: links-to-agenda-views
+    :END:
+#+index: Agenda view!Links to
+This hack was [[http://lists.gnu.org/archive/html/emacs-orgmode/2012-08/msg00986.html][posted to the mailing list]] by Nathan Neff.
+
+If you have custom agenda commands defined to some key, say w, then
+the following will serve as a link to the custom agenda buffer.
+: [[elisp:(org-agenda nil "w")][Show Waiting Tasks]]
+
+Clicking on it will prompt if you want to execute the elisp code.  If
+you would rather not have the prompt or would want to respond with a
+single letter, ~y~ or ~n~, take a look at the docstrings of the
+variables =org-confirm-elisp-link-function= and
+=org-confirm-elisp-link-not-regexp=.  Please take special note of the
+security risk associated with completely disabling the prompting
+before you proceed.
+
 ** Exporting org files
 *** Export Org to Org and handle includes.
 #+index: Export!handle includes
@@ -1989,6 +2113,25 @@ top of each kind of code box:
 Additionally, we use color to distinguish code output (the =.example=
 class) from input (all the =.src-*= classes).
 
+** Babel
+
+*** How do I preview LaTeX fragments when in a LaTeX source block?
+
+When editing =LaTeX= source blocks, you may want to preview LaTeX fragments
+just like in an Org-mode buffer.  You can do this by using the usual
+keybinding =C-c C-x C-l= after loading this snipped:
+
+#+BEGIN_SRC emacs-lisp
+(define-key org-src-mode-map "\C-c\C-x\C-l" 'org-edit-preview-latex-fragment)
+
+(defun org-edit-preview-latex-fragment ()
+  "Write latex fragment from source to parent buffer and preview it."
+  (interactive)
+  (org-src-in-org-buffer (org-preview-latex-fragment)))
+#+END_SRC
+
+Thanks to Sebastian Hofer for sharing this.
+
 * Hacking Org: Working with Org-mode and other Emacs Packages.
 ** org-remember-anything
 
@@ -2023,6 +2166,44 @@ Fix a problem with =saveplace.el= putting you back in a folded position:
 		(outline-previous-visible-heading 1)
 		(org-show-subtree)))))
 #+end_src
+
+** Using ido-mode for org-refile (and archiving via refile)
+
+First set up ido-mode, for example using:
+
+#+begin_src emacs-lisp
+; use ido mode for completion
+(setq ido-everywhere t)
+(setq ido-enable-flex-matching t)
+(setq ido-max-directory-size 100000)
+(ido-mode (quote both))
+#+end_src
+
+Now to enable it in org-mode, use the following:
+#+begin_src emacs-lisp
+(setq org-completion-use-ido t)
+(setq org-refile-use-outline-path nil)
+(setq org-refile-allow-creating-parent-nodes 'confirm)
+#+end_src
+The last line enables the creation of nodes on the fly.
+
+If you refile into files that are not in your agenda file list, you can add them as target like this (replace file1\_done, etc with your files):
+#+begin_src emacs-lisp
+(setq org-refile-targets '((org-agenda-files :maxlevel . 5) (("~/org/file1_done" "~/org/file2_done") :maxlevel . 5) ))
+#+end_src
+
+For refiling it is often not useful to include targets that have a DONE state. It's easy to remove them by using the verify-refile-target hook.
+#+begin_src emacs-lisp
+; Exclude DONE state tasks from refile targets; taken from http://doc.norang.ca/org-mode.html
+; added check to only include headlines, e.g. line must have at least one child
+(defun my/verify-refile-target ()
+  "Exclude todo keywords with a DONE state from refile targets"
+  (or (not (member (nth 2 (org-heading-components)) org-done-keywords)))
+      (save-excursion (org-goto-first-child))
+  )
+(setq org-refile-target-verify-function 'my/verify-refile-target)
+#+end_src
+Now when looking for a refile target, you can use the full power of ido to find them. Ctrl-R can be used to switch between different options that ido offers.
 
 ** Using ido-completing-read to find attachments
 
@@ -2416,48 +2597,98 @@ The functions (and latitude/longitude settings which you have to modify for
 your location) are as follows:
 
 #+begin_src emacs-lisp
-(setq calendar-latitude 40.3)
-(setq calendar-longitude -71.0)
+(setq calendar-latitude 48.2)
+(setq calendar-longitude 16.4)
+(setq calendar-location-name "Vienna, Austria")
+
+(autoload 'solar-sunrise-sunset "solar.el")
+(autoload 'solar-time-string "solar.el")
 (defun diary-sunrise ()
-  (let ((dss (diary-sunrise-sunset)))
-    (with-temp-buffer
-      (insert dss)
-      (goto-char (point-min))
-      (while (re-search-forward " ([^)]*)" nil t)
-        (replace-match "" nil nil))
-      (goto-char (point-min))
-      (search-forward ",")
-      (buffer-substring (point-min) (match-beginning 0)))))
+  "Local time of sunrise as a diary entry.
+The diary entry can contain `%s' which will be replaced with
+`calendar-location-name'."
+  (let ((l (solar-sunrise-sunset date)))
+    (when (car l)
+      (concat
+       (if (string= entry "")
+           "Sunrise"
+         (format entry (eval calendar-location-name))) " "
+         (solar-time-string (caar l) nil)))))
 
 (defun diary-sunset ()
-  (let ((dss (diary-sunrise-sunset))
-        start end)
-    (with-temp-buffer
-      (insert dss)
-      (goto-char (point-min))
-      (while (re-search-forward " ([^)]*)" nil t)
-        (replace-match "" nil nil))
-      (goto-char (point-min))
-      (search-forward ", ")
-      (setq start (match-end 0))
-      (search-forward " at")
-      (setq end (match-beginning 0))
-      (goto-char start)
-      (capitalize-word 1)
-      (buffer-substring start end))))
+  "Local time of sunset as a diary entry.
+The diary entry can contain `%s' which will be replaced with
+`calendar-location-name'."
+  (let ((l (solar-sunrise-sunset date)))
+    (when (cadr l)
+      (concat
+       (if (string= entry "")
+           "Sunset"
+         (format entry (eval calendar-location-name))) " "
+         (solar-time-string (caadr l) nil)))))
 #+end_src
 
 You also need to add a couple of diary s-expressions in one of your agenda
 files:
 
 #+begin_src org-mode
-%%(diary-sunrise)
+%%(diary-sunrise)Sunrise in %s
 %%(diary-sunset)
 #+end_src
 
+This will show sunrise with the location and sunset without it.
+
 The thread on the mailing list that started this can be found [[http://thread.gmane.org/gmane.emacs.orgmode/38723Here%20is%20a%20pointer%20to%20the%20thread%20on%20the%20mailing%20list][here]].
 In comparison to the version posted on the mailing list, this one
-gets rid of the timezone information.
+gets rid of the timezone information and can show the location.
+** Add lunar phases to the agenda.
+#+index: Agenda!Diary s-expressions
+   -- Rüdiger
+
+Emacs comes with =lunar.el= to display the lunar phases (=M-x lunar-phases=).
+This can be used to display lunar phases in the agenda display with the
+following function:
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(org-no-warnings (defvar date))
+(defun org-lunar-phases ()
+  "Show lunar phase in Agenda buffer."
+  (require 'lunar)
+  (let* ((phase-list (lunar-phase-list (nth 0 date) (nth 2 date)))
+         (phase (cl-find-if (lambda (phase) (equal (car phase) date))
+                            phase-list)))
+    (when phase
+      (setq ret (concat (lunar-phase-name (nth 2 phase)) " "
+                        (substring (nth 1 phase) 0 5))))))
+#+end_src
+
+Add the following line to an agenda file:
+
+#+begin_src org-mode
+* Lunar phase
+#+CATEGORY: Lunar
+%%(org-lunar-phases)
+#+end_src
+
+This should display an entry on new moon, first/last quarter moon, and on full
+moon.  You can customize the entries by customizing =lunar-phase-names=.
+
+E.g., to add Unicode symbols:
+
+#+begin_src emacs-lisp
+(setq lunar-phase-names
+      '("● New Moon" ; Unicode symbol: 🌑 Use full circle as fallback
+        "☽ First Quarter Moon"
+        "○ Full Moon" ; Unicode symbol: 🌕 Use empty circle as fallback
+        "☾ Last Quarter Moon"))
+#+end_src
+
+Unicode 6 even provides symbols for the Moon with nice faces.  But those
+symbols are currently barely supported in fonts.
+See [[https://en.wikipedia.org/wiki/Astronomical_symbols#Moon][Astronomical symbols on Wikipedia]].
+
 ** Export BBDB contacts to org-contacts.el
 #+index: Address Book!BBDB to org-contacts
 Try this tool by Wes Hardaker:
@@ -2540,6 +2771,57 @@ enough about facilities provided by Emacs (e.g. regexp searching) and
 by Org (e.g. checking for time stamps and generating a time stamp) so
 that you don't reinvent the wheel, and impedance-matching between the
 various pieces.
+
+** ibuffer and org files
+
+Neil Smithline posted this snippet to let you browse org files with
+=ibuffer=:
+
+#+BEGIN_SRC emacs-lisp
+(require 'ibuffer)
+
+(defun org-ibuffer ()
+  "Open an `ibuffer' window showing only `org-mode' buffers."
+  (interactive)
+  (ibuffer nil "*Org Buffers*" '((used-mode . org-mode))))
+#+END_SRC
+
+** Enable org-mode links in other modes
+
+Sean O'Halpin wrote a minor mode for this, please check it [[https://github.com/seanohalpin/org-link-minor-mode][here]].
+
+See the relevant discussion [[http://thread.gmane.org/gmane.emacs.orgmode/58715/focus%3D58794][here]].
+
+** poporg.el: edit comments in org-mode
+
+[[https://github.com/pinard/PopOrg/blob/master/poporg.el][poporg.el]] is a library by François Pinard which lets you edit comments
+from your code using a separate org-mode buffer.
+
+** Convert a .csv file to an Org-mode table
+
+Nicolas Richard has a [[http://article.gmane.org/gmane.emacs.orgmode/65456][nice recipe]] using the pcsv library ([[http://marmalade-repo.org/packages/pcsv][available]] from
+the Marmelade ELPA repository):
+
+#+BEGIN_SRC emacs-lisp
+(defun yf/lisp-table-to-org-table (table &optional function)
+  "Convert a lisp table to `org-mode' syntax, applying FUNCTION to each of its elements.
+The elements should not have any more newlines in them after
+applying FUNCTION ; the default converts them to spaces. Return
+value is a string containg the unaligned `org-mode' table."
+  (unless (functionp function)
+    (setq function (lambda (x) (replace-regexp-in-string "\n" " " x))))
+  (mapconcat (lambda (x)                ; x is a line.
+               (concat "| " (mapconcat function x " | ") " |"))
+             table "\n"))
+
+(defun yf/csv-to-table (beg end)
+"Convert a csv file to an `org-mode' table."
+  (interactive "r")
+  (require 'pcsv)
+  (insert (yf/lisp-table-to-org-table (pcsv-parse-region beg end)))
+  (delete-region beg end)
+  (org-table-align))
+#+END_SRC
 
 * Hacking Org: Working with Org-mode and External Programs.
 ** Use Org-mode with Screen [Andrew Hyatt]
@@ -2641,11 +2923,95 @@ popup window.
     msg "' &") nil nil)))
 #+END_SRC
 
+** Org and appointment notifications on Mac OS 10.8
+
+Sarah Bagby [[http://mid.gmane.org/EA76104A-9ACD-4141-8D33-2E4D810D9B5A%2540geol.ucsb.edu][posted some code]] on how to get appointments notifications on
+Mac OS 10.8 with [[https://github.com/alloy/terminal-notifier][terminal-notifier]].
+
 ** Org-Mode + gnome-osd
 #+index: Appointment!reminders
 #+index: Appt!gnome-osd
 Richard Riley uses gnome-osd in interaction with Org-Mode to display
 appointments.  You can look at the code on the [[http://www.emacswiki.org/emacs-en/OrgMode-OSD][emacswiki]].
+
+** txt2org convert text data to org-mode tables
+From Eric Schulte
+
+I often find it useful to generate Org-mode tables on the command line
+from tab-separated data.  The following awk script makes this easy to
+do.  Text data is read from STDIN on a pipe and any command line
+arguments are interpreted as rows at which to insert hlines.
+
+Here are two usage examples.
+1. running the following
+   : $ cat <<EOF|~/src/config/bin/txt2org
+   : one 1
+   : two 2
+   : three 3
+   : twenty 20
+   : EOF                  
+   results in
+   : |    one |  1 |
+   : |    two |  2 |
+   : |  three |  3 |
+   : | twenty | 20 |
+
+2. and the following (notice the command line argument)
+   : $ cat <<EOF|~/src/config/bin/txt2org 1
+   : strings numbers                                          
+   : one 1
+   : two 2
+   : three 3
+   : twenty 20
+   : EOF 
+   results in
+   : | strings | numbers |
+   : |---------+---------|
+   : |     one |       1 |
+   : |     two |       2 |
+   : |   three |       3 |
+   : |  twenty |      20 |
+
+Here is the script itself
+#+begin_src awk
+  #!/usr/bin/gawk -f
+  #
+  # Read tab separated data from STDIN and output an Org-mode table.
+  #
+  # Optional command line arguments specify row numbers at which to
+  # insert hlines.
+  #
+  BEGIN {
+      for(i=1; i<ARGC; i++){
+          hlines[ARGV[i]+1]=1; ARGV[i] = "-"; } }
+  
+  {
+      if(NF > max_nf){ max_nf = NF; };
+      for(f=1; f<=NF; f++){
+          if(length($f) > lengths[f]){ lengths[f] = length($f); };
+          row[NR][f]=$f; } }
+  
+  END {
+      hline_str="|"
+      for(f=1; f<=max_nf; f++){
+          for(i=0; i<(lengths[f] + 2); i++){ hline_str=hline_str "-"; }
+          if( f != max_nf){ hline_str=hline_str "+"; }
+          else            { hline_str=hline_str "|"; } }
+  
+      for(r=1; r<=NR; r++){ # rows
+          if(hlines[r] == 1){ print hline_str; }
+          printf "|";
+          for(f=1; f<=max_nf; f++){ # columns
+              cell=row[r][f]; padding=""
+              for(i=0; i<(lengths[f] - length(cell)); i++){ padding=padding " "; }
+              # for now just print everything right-aligned
+              # if(cell ~ /[0-9.]/){ printf " %s%s |", cell, padding; }
+              # else{                printf " %s%s |", padding, cell; }
+              printf " %s%s |", padding, cell; }
+          printf "\n"; }
+      
+      if(hlines[NR+1]){ print hline_str; } }
+#+end_src
 
 ** remind2org
 #+index: Agenda!Views
@@ -2891,62 +3257,65 @@ prefixed with "#", even not when within source blocks.
 #+index: Conversion!fileconversion emacs-lisp code
 
 #+BEGIN_SRC emacs-lisp
-  ;; - fileconversion version 0.6
+  ;; - fileconversion version 0.7
   ;; - DISCLAIMER: Make a backup of your Org files before using
   ;;   my-org-fileconv-*.
   ;; - supported formats: hidestarsfile, markdownstarsfile
 
   ;; design summary: fileconversion is a round robin of two states
   ;; linked by two actions:
-  ;; - state my-org-fileconv-level-org-p is nil: the level is "file"
+  ;; - state v-org-fileconv-level-org-p is nil: the level is “file”
   ;;   (encoded)
-  ;; - action my-org-fileconv-decode: replace file char with '*'
-  ;; - state my-org-fileconv-level-org-p is t: the level is "Org"
+  ;; - action f-org-fileconv-decode: replace file char with “*”
+  ;; - state v-org-fileconv-level-org-p is t: the level is “Org”
   ;;   (decoded)
-  ;; - action my-org-fileconv-encode replace '*' with file char
+  ;; - action f-org-fileconv-encode: replace “*” with file char
+  ;; naming convention of prefix:
+  ;; - f-[...]: “my function”, instead of the unspecific prefix “my-”
+  ;; - v-[...]: “my variable”, instead of the unspecific prefix “my-”
 
-  (defvar my-org-fileconv-level-org-p nil
+  (defvar v-org-fileconv-level-org-p nil
     "Whether level of buffer is Org or only file.
   nil means the level is file (encoded), non-nil means the level is Org
   (decoded).")
-  (make-variable-buffer-local 'my-org-fileconv-level-org-p)
+  (make-variable-buffer-local 'v-org-fileconv-level-org-p)
   ;; survive a change of major mode that does kill-all-local-variables,
   ;; e. g. when reentering Org mode through “C-c C-c” on a STARTUP line
-  (put 'my-org-fileconv-level-org-p 'permanent-local t)
+  (put 'v-org-fileconv-level-org-p 'permanent-local t)
 
-  (add-hook 'org-mode-hook 'my-org-fileconv-init
+  (add-hook 'org-mode-hook 'f-org-fileconv-init
             ;; _append_ to hook to have a higher chance that a message
             ;; from this function will be visible as the last message in
             ;; the minibuffer
             t
-            ;; hook addition global
+            ;; hook addition globally
             nil)
 
-  (defun my-org-fileconv-init ()
+  (defun f-org-fileconv-init ()
     (interactive)
     ;; instrument only when converting really from/to an Org _file_, not
     ;; e. g. for a temp Org buffer unrelated to a file like used e. g.
     ;; when calling the old Org exporter
     (when (buffer-file-name)
-      (message "INF: my-org-fileconv-init, buffer: %s" (buffer-name))
-      (my-org-fileconv-decode)
+      (message "INF: f-org-fileconv-init, buffer: %s" (buffer-name))
+      (f-org-fileconv-decode)
       ;; the hooks are not permanent-local, this way and as needed they
       ;; will disappear when the major mode of the buffer changes
-      (add-hook 'change-major-mode-hook 'my-org-fileconv-encode nil
+      (add-hook 'change-major-mode-hook 'f-org-fileconv-encode nil
                 ;; hook addition limited to buffer locally
                 t)
-      (add-hook 'before-save-hook 'my-org-fileconv-encode nil
+      (add-hook 'before-save-hook 'f-org-fileconv-encode nil
                 ;; hook addition limited to buffer locally
                 t)
-      (add-hook 'after-save-hook 'my-org-fileconv-decode nil
+      (add-hook 'after-save-hook 'f-org-fileconv-decode nil
                 ;; hook addition limited to buffer locally
                 t)))
 
-  (defun my-org-fileconv-re ()
+  (defun f-org-fileconv-re ()
     "Check whether there is a STARTUP line for fileconversion.
   If found then return the expressions required for the conversion."
     (save-excursion
-      (beginning-of-buffer)
+      (goto-char (point-min))  ;; beginning-of-buffer not allowed
       (let (re-list (count 0))
         (while (re-search-forward "^#\\+STARTUP:" nil t)
           ;; #+STARTUP: hidestarsfile
@@ -2974,13 +3343,13 @@ prefixed with "#", even not when within source blocks.
                             ?#))       ; file-char
             (setq count (1+ count))))
         (when (> count 1)
-          (error "ERR: more than one fileconversion found"))
+          (error "More than one fileconversion found"))
         re-list)))
 
-  (defun my-org-fileconv-decode ()
+  (defun f-org-fileconv-decode ()
     "In headings replace file char with '*'."
-    (let ((re-list (my-org-fileconv-re)))
-      (when (and re-list (not my-org-fileconv-level-org-p))
+    (let ((re-list (f-org-fileconv-re)))
+      (when (and re-list (not v-org-fileconv-level-org-p))
         ;; no `save-excursion' to be able to keep point in case of error
         (let* ((common-re (nth 0 re-list))
                (file-char (nth 1 re-list))
@@ -2988,14 +3357,13 @@ prefixed with "#", even not when within source blocks.
                (org-re    (concat "^\\*+" common-re))
                len
                (p         (point)))
-          (beginning-of-buffer)
+          (goto-char (point-min))  ;; beginning-of-buffer not allowed
           ;; syntax check
           (when (re-search-forward org-re nil t)
             (goto-char (match-beginning 0))
             (org-reveal)
-            (error
-             "ERR: my-org-fileconv-decode syntax conflict at point"))
-          (beginning-of-buffer)
+            (error "Org fileconversion dec: syntax conflict at point"))
+          (goto-char (point-min))  ;; beginning-of-buffer not allowed
           ;; substitution
           (with-silent-modifications
             (while (re-search-forward file-re nil t)
@@ -3021,12 +3389,12 @@ prefixed with "#", even not when within source blocks.
           ;;     takes two files as arguments and uses "emacs --eval")
 
     ;; the level is Org most of all when no fileconversion is in effect
-    (setq my-org-fileconv-level-org-p t))
+    (setq v-org-fileconv-level-org-p t))
 
-  (defun my-org-fileconv-encode ()
+  (defun f-org-fileconv-encode ()
     "In headings replace '*' with file char."
-    (let ((re-list (my-org-fileconv-re)))
-      (when (and re-list my-org-fileconv-level-org-p)
+    (let ((re-list (f-org-fileconv-re)))
+      (when (and re-list v-org-fileconv-level-org-p)
         ;; no `save-excursion' to be able to keep point in case of error
         (let* ((common-re (nth 0 re-list))
                (file-char (nth 1 re-list))
@@ -3034,14 +3402,13 @@ prefixed with "#", even not when within source blocks.
                (org-re    (concat "^\\*+" common-re))
                len
                (p         (point)))
-          (beginning-of-buffer)
+          (goto-char (point-min))  ;; beginning-of-buffer not allowed
           ;; syntax check
           (when (re-search-forward file-re nil t)
             (goto-char (match-beginning 0))
             (org-reveal)
-            (error
-             "ERR: my-org-fileconv-encode syntax conflict at point"))
-          (beginning-of-buffer)
+            (error "Org fileconversion enc: syntax conflict at point"))
+          (goto-char (point-min))  ;; beginning-of-buffer not allowed
           ;; substitution
           (with-silent-modifications
             (while (re-search-forward org-re nil t)
@@ -3052,7 +3419,7 @@ prefixed with "#", even not when within source blocks.
               (insert-char file-char len)
               (delete-char len)))
           (goto-char p)
-          (setq my-org-fileconv-level-org-p nil))))
+          (setq v-org-fileconv-level-org-p nil))))
     nil)  ;; for the hook
 #+END_SRC
 
@@ -3107,6 +3474,11 @@ index a0672ea..92a08f7 100644
  
  ** Cooking?  Brewing?
 #+end_example
+
+** Opening devonthink links
+
+John Wiegley wrote [[https://github.com/jwiegley/dot-emacs/blob/master/lisp/org-devonthink.el][org-devonthink.el]], which lets you handle devonthink
+links from org-mode.
 
 * Musings
 

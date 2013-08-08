@@ -46,12 +46,14 @@ Put this or something similar at the top of your .org document:
 **Light version:**
 
     #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
-    #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
+    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
 
 **Dark version:**
 
     #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
-    #+STYLE: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" />
+    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" />
+
+(`#+STYLE:` changed to `#+HTML_HEAD:` in org-mode 8.0)
 
 ## Examples
 - [Most or all HTML elements.](test/html.html)

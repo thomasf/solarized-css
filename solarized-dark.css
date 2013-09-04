@@ -174,9 +174,16 @@ h6 {
   font-weight: 700;
 }
 html {
-  background-color: #002b36;
+  background-color: #073642;
   color: #839496;
   margin: 1em;
+}
+body {
+  background-color: #002b36;
+  margin: 0 auto;
+  max-width: 23cm;
+  border: 1pt solid #586e75;
+  padding: 1em;
 }
 code {
   background-color: #073642;

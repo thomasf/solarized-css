@@ -8,7 +8,7 @@
 #+LANGUAGE:   en
 #+PRIORITIES: A C B
 #+CATEGORY:   worg
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-light.min.css" />
 
 # This file is the default header for new Org files in Worg.  Feel free
 # to tailor it to your needs.

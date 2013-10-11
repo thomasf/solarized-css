@@ -281,23 +281,23 @@ h6 {
   -webkit-border-radius: 0.2em;
   -moz-border-radius: 0.2em;
   border-radius: 0.2em;
-  foreground-color: #cb4b16;
+  background-color: #cb4b16;
 }
 .HOLD {
   -webkit-border-radius: 0.2em;
   -moz-border-radius: 0.2em;
   border-radius: 0.2em;
-  foreground-color: #d33682;
+  background-color: #d33682;
 }
 .NOTE {
   -webkit-border-radius: 0.2em;
   -moz-border-radius: 0.2em;
   border-radius: 0.2em;
-  foreground-color: #d33682;
+  background-color: #d33682;
 }
 .CANCELLED {
   -webkit-border-radius: 0.2em;
   -moz-border-radius: 0.2em;
   border-radius: 0.2em;
-  foreground-color: #859900;
+  background-color: #859900;
 }

@@ -15,17 +15,16 @@ Repository: **[http://github.com/thomasf/solarized-css](https://github.com/thoma
 
 * Org mode HTML exports
 * Markdown
-* Any HTML document that mostly relies on standard HTML elements.
 
 ## Download CSS
 
 **Light:** 
-[uncompressed](http://thomasf.github.com/solarized-css/solarized-light.css)
- / [minimized](http://thomasf.github.com/solarized-css/solarized-light.min.css)
+[uncompressed](http://thomasf.github.io/solarized-css/solarized-light.css)
+ / [minimized](http://thomasf.github.io/solarized-css/solarized-light.min.css)
  
 **Dark:**
-[uncompressed](http://thomasf.github.com/solarized-css/solarized-dark.css)
- / [minimized](http://thomasf.github.com/solarized-css/solarized-dark.min.css)
+[uncompressed](http://thomasf.github.io/solarized-css/solarized-dark.css)
+ / [minimized](http://thomasf.github.io/solarized-css/solarized-dark.min.css)
 
 ## Using in HTML documents without downloading
 
@@ -33,11 +32,11 @@ Just insert one of these lines into the `<head>` section of any HTML file.
 
 **Light version:**
 
-    <link href="http://thomasf.github.com/solarized-css/solarized-light.min.css" rel="stylesheet"></link>
+    <link href="http://thomasf.github.io/solarized-css/solarized-light.min.css" rel="stylesheet"></link>
 
 **Dark version:**
 
-    <link href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
+    <link href="http://thomasf.github.io/solarized-css/solarized-dark.min.css" rel="stylesheet"></link>
 
 ## Using in Org mode HTML exports without downloading
 
@@ -45,13 +44,13 @@ Put this or something similar at the top of your .org document:
 
 **Light version:**
 
-    #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
-    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-light.min.css" />
+    #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.io/solarized-css/org-info.min.js
+    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-light.min.css" />
 
 **Dark version:**
 
-    #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.com/solarized-css/org-info.min.js
-    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.com/solarized-css/solarized-dark.min.css" />
+    #+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.io/solarized-css/org-info.min.js
+    #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://thomasf.github.io/solarized-css/solarized-dark.min.css" />
 
 (`#+STYLE:` changed to `#+HTML_HEAD:` in org-mode 8.0)
 

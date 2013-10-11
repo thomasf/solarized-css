@@ -1,0 +1,67 @@
+{
+  "name": "solarized-css",
+  "version": "0.0.0",
+  "dependencies": {
+    "uglifycss": {
+      "version": "0.0.5",
+      "from": "uglifycss@*"
+    },
+    "stylus": {
+      "version": "0.36.1",
+      "from": "stylus@*",
+      "resolved": "https://registry.npmjs.org/stylus/-/stylus-0.36.1.tgz",
+      "dependencies": {
+        "cssom": {
+          "version": "0.2.5",
+          "from": "cssom@0.2.x"
+        },
+        "mkdirp": {
+          "version": "0.3.5",
+          "from": "mkdirp@0.3.x"
+        },
+        "debug": {
+          "version": "0.7.2",
+          "from": "debug@*"
+        },
+        "sax": {
+          "version": "0.5.4",
+          "from": "sax@0.5.x"
+        }
+      }
+    },
+    "coffee-script": {
+      "version": "1.6.3",
+      "from": "coffee-script@*"
+    },
+    "uglify-js": {
+      "version": "2.3.6",
+      "from": "uglify-js@*",
+      "dependencies": {
+        "async": {
+          "version": "0.2.9",
+          "from": "async@~0.2.6"
+        },
+        "source-map": {
+          "version": "0.1.27",
+          "from": "source-map@~0.1.7",
+          "dependencies": {
+            "amdefine": {
+              "version": "0.0.8",
+              "from": "amdefine@>=0.0.4"
+            }
+          }
+        },
+        "optimist": {
+          "version": "0.3.7",
+          "from": "optimist@~0.3.5",
+          "dependencies": {
+            "wordwrap": {
+              "version": "0.0.2",
+              "from": "wordwrap@~0.0.2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

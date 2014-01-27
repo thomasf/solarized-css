@@ -48,3 +48,5 @@ case $arg in
         build_js
         ;;
 esac
+
+find . -name '*.css' -print0 |xargs -0 sed -i "s/http:\/\//\/\//"

@@ -17,7 +17,9 @@ case $arg in
     ./node_modules/.bin/stylus -l -w src/solarized-css/ -o .
     ;;
   gh-pages)
-    #FIXME this process needs to be changed
+    #FIXME this process needs to be changed 
+    #FIXME built files are in the /build instead of /
+
     git diff-files --quiet || (
       git status
       echo "Unclean, exiting"

@@ -20,10 +20,21 @@ module.exports = (grunt) ->
       all: [
         'src/script/*.coffee'
         ]
-    # uglify:
-
+    concat:
+      main:
+        files:
+          "build/all.js": [
+            'src/script/org-info-src.js'
+            'build/org-info-extensions.js'
+          ]
+    uglify:
+      main:
+        files:
+          "build/all.min.js": "build/all.js"
     concurrent:
       compile: ['stylus:dark', 'stylus:light', 'coffee:main']
+      concat: ['concat']
+      minify: ['uglify:main']
       lint: ['coffeelint:all']
 
     watch:
@@ -41,7 +52,7 @@ module.exports = (grunt) ->
           'src/script/*.coffee'
           '!src/script/_fly*'
           ]
-        tasks: "coffee"
+        tasks: ["coffee", "concat"]
         options:
           spawn: false
           livereload: true
@@ -50,10 +61,12 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks "grunt-contrib-stylus"
   grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
+  grunt.loadNpmTasks 'grunt-contrib-concat'
   grunt.loadNpmTasks 'grunt-concurrent'
   grunt.loadNpmTasks 'grunt-coffeelint'
   grunt.registerTask "default", [
     'concurrent:compile'
-    # 'concurrent:minify'
-    # 'concurrent:lint'
+    'concurrent:concat'
+    'concurrent:minify'
+    'concurrent:lint'
   ]

@@ -21,5 +21,5 @@ To install dependencies, run this from the repository root:
 
 Then you should be able to rebuild using:
 
-    ./build
+    grunt
     

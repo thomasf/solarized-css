@@ -1,5 +1,7 @@
 # Solarized HTML stylesheet
 
+[![Join the chat at https://gitter.im/thomasf/solarized-css](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/thomasf/solarized-css?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 This project aim is to provide general solarized light and dark colorshcemes
 for HTML documents that mostly relies on standard HTML elements.
 

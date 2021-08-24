@@ -2,26 +2,20 @@
   "author": "Thomas Frössman <thomasf@jossystem.se> (http://thomas.jossystem.se)",
   "name": "solarized-css",
   "description": "A default html style sheet using solarized colors",
-  "version": "0.0.0",
-  "dependencies": {
-    "uglifycss": "*",
-    "stylus": "*",
-    "coffee-script": "*",
-    "uglify-js": "*",
-    "grunt-lib-contrib": "~0.3.0"
+  "version": "2.0.0",
+  "scripts": {
+    "build": "gulp"
   },
   "devDependencies": {
-    "grunt": "~0.4.0",
-    "grunt-contrib-stylus": "~0.12.0",
-    "grunt-contrib-coffee": "~0.8.0",
-    "grunt-contrib-watch": "~0.5.3",
-    "grunt-contrib-uglify": "~0.2.7",
-    "grunt-concurrent": "~0.4.2",
-    "grunt-coffeelint": "0.0.8",
-    "grunt-contrib-concat": "~0.3.0"
+    "gulp": "^4.0.2",
+    "gulp-clean-css": "^4.3.0",
+    "gulp-clone": "^2.0.1",
+    "gulp-rename": "^2.0.0",
+    "gulp-rimraf": "^1.0.0",
+    "gulp-stylus": "^2.7.0",
+    "stylus": "^0.54.8"
   },
-  "optionalDependencies": {},
   "engines": {
-    "node": "*"
+    "node": "16.6.1"
   }
 }

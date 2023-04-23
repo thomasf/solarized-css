@@ -19,7 +19,7 @@ To be able to build you need to have [nodejs](http://nodejs.org/) installed.
 
 To install dependencies, run this from the repository root:
 
-    npm install
+    yarn install
 
 Then you should be able to rebuild using:
 
